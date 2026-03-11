@@ -1,0 +1,248 @@
+import React, { useState, useEffect } from "react";
+import { Handle, Position } from "@xyflow/react";
+import type { NodeProps } from "@xyflow/react";
+import {
+  Check,
+  Copy,
+  Loader2,
+  AlertCircle,
+  X,
+  Edit3,
+  Settings,
+} from "lucide-react";
+import type { WorkflowNode, NodeRunData } from "../../types/workflow";
+
+const CopyableJsonBlock = ({
+  title,
+  data,
+  preClassName,
+}: {
+  title: string;
+  data: any;
+  preClassName: string;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="relative group/copy flex flex-col">
+      <div className="flex justify-between items-center mb-1">
+        <span className="font-semibold">{title}:</span>
+        <button
+          onClick={handleCopy}
+          className="opacity-0 group-hover/copy:opacity-100 transition-opacity p-1 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
+          title={`Copy ${title}`}
+        >
+          {copied ? (
+            <Check className="w-3 h-3 text-green-600" />
+          ) : (
+            <Copy className="w-3 h-3" />
+          )}
+        </button>
+      </div>
+      <pre className={preClassName}>{JSON.stringify(data, null, 2)}</pre>
+    </div>
+  );
+};
+
+const PuppyNode = ({ data }: NodeProps) => {
+  const { node, runData, globalRunStatus, onResume, onEditClick } = data as {
+    node: WorkflowNode;
+    runData?: NodeRunData;
+    globalRunStatus?: string;
+    onResume: (nodeId: string, action: string, modifiedOutputs?: any) => void;
+    onEditClick: (node: WorkflowNode) => void;
+  };
+
+  const status = runData?.status || "pending";
+  const [editMode, setEditMode] = useState(false);
+  const [editedOutputs, setEditedOutputs] = useState("");
+
+  // Status visual mapping
+  const statusConfig = {
+    pending: {
+      bg: "bg-gray-50",
+      border: "border-gray-200",
+      text: "text-gray-500",
+      icon:
+        globalRunStatus === "running" ? (
+          <Loader2 className="w-4 h-4 animate-spin opacity-50" />
+        ) : null,
+    },
+    running: {
+      bg: "bg-blue-50",
+      border: "border-blue-300",
+      text: "text-blue-600",
+      icon: <Loader2 className="w-4 h-4 animate-spin" />,
+    },
+    paused: {
+      bg: "bg-amber-50",
+      border: "border-amber-400",
+      text: "text-amber-700",
+      icon: <AlertCircle className="w-4 h-4" />,
+    },
+    completed: {
+      bg: "bg-green-50",
+      border: "border-green-300",
+      text: "text-green-600",
+      icon: <Check className="w-4 h-4" />,
+    },
+    error: {
+      bg: "bg-red-50",
+      border: "border-red-300",
+      text: "text-red-600",
+      icon: <X className="w-4 h-4" />,
+    },
+  };
+
+  const conf = statusConfig[status];
+
+  // Auto populate edit field when paused
+  useEffect(() => {
+    if (status === "paused" && runData?.outputs) {
+      setEditedOutputs(JSON.stringify(runData.outputs, null, 2));
+    }
+  }, [status, runData?.outputs]);
+
+  const handleApprove = () => onResume(node.id, "approve");
+  const handleReject = () => onResume(node.id, "reject");
+  const handleEditSubmit = () => {
+    try {
+      const parsed = JSON.parse(editedOutputs);
+      onResume(node.id, "edit", parsed);
+      setEditMode(false);
+    } catch (e) {
+      alert("Invalid JSON format");
+    }
+  };
+
+  return (
+    <div
+      className={`px-4 py-3 shadow-md rounded-xl bg-white border-2 ${conf.border} min-w-[250px] transition-all`}
+    >
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="w-3 h-3 bg-gray-400"
+      />
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-2 gap-4 relative group">
+        <div>
+          <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
+            🐶 {node.name}
+          </h3>
+        </div>
+        <div
+          className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${conf.bg} ${conf.text}`}
+        >
+          {conf.icon} {status.toUpperCase()}
+        </div>
+
+        {/* Edit settings icon - visible on hover */}
+        {status === "pending" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditClick(node);
+            }}
+            className="absolute -right-2 -top-2 p-1.5 bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-10"
+            title="Node Settings"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Body / Data view */}
+      <div className="text-xs text-gray-600 space-y-2 w-full">
+        {runData?.error_msg && (
+          <div className="text-red-600 bg-red-50 p-2 rounded text-[10px] font-mono whitespace-pre-wrap break-words max-w-[250px]">
+            {runData.error_msg}
+          </div>
+        )}
+
+        {runData?.inputs && Object.keys(runData.inputs).length > 0 && (
+          <CopyableJsonBlock
+            title="Inputs"
+            data={runData.inputs}
+            preClassName="bg-gray-100 p-2 rounded text-[10px] overflow-auto max-h-24 max-w-[250px] whitespace-pre-wrap break-words"
+          />
+        )}
+
+        {runData?.outputs && !editMode && (
+          <CopyableJsonBlock
+            title="Outputs"
+            data={runData.outputs}
+            preClassName="bg-green-50 p-2 rounded text-[10px] overflow-auto max-h-32 border border-green-100 max-w-[250px] whitespace-pre-wrap break-words"
+          />
+        )}
+
+        {/* Human-in-the-Loop Interventions */}
+        {status === "paused" && (
+          <div className="mt-3 pt-3 border-t border-amber-200 flex flex-col items-center">
+            {editMode ? (
+              <div className="space-y-2 w-full">
+                <textarea
+                  className="w-full h-32 p-2 border border-amber-300 rounded text-[10px] font-mono bg-amber-50"
+                  value={editedOutputs}
+                  onChange={(e) => setEditedOutputs(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleEditSubmit}
+                    className="flex-1 bg-amber-500 text-white py-1 rounded shadow text-xs font-bold hover:bg-amber-600 cursor-pointer"
+                  >
+                    Save & Resume
+                  </button>
+                  <button
+                    onClick={() => setEditMode(false)}
+                    className="px-3 bg-gray-200 py-1 rounded shadow text-xs hover:bg-gray-300 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={handleApprove}
+                  className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <Check className="w-3 h-3" /> Approve
+                </button>
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <Edit3 className="w-3 h-3" /> Edit
+                </button>
+                <button
+                  onClick={handleReject}
+                  className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" /> Reject
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="a"
+        className="w-3 h-3 bg-gray-400"
+      />
+    </div>
+  );
+};
+
+export default PuppyNode;
