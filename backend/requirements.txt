@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+motor
+beanie
+requests
+langgraph>=1.0.0
+langgraph-checkpoint-mongodb>=0.3.0
