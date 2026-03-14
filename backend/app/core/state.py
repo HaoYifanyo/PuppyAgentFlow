@@ -18,5 +18,7 @@ class WorkflowState(TypedDict):
     node_inputs: Annotated[dict[str, Any], merge_dicts]
     # Per-node outputs snapshot: {node_id: {key: value}}
     node_outputs: Annotated[dict[str, Any], merge_dicts]
+    # The node ID that ran in the current step (non-accumulating, used for history query)
+    current_node_id: str
     # Optional error message tracking
     error: str

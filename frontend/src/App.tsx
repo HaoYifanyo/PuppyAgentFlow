@@ -1,12 +1,12 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { ReactFlow, MiniMap, Controls, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { RunConfigModal } from './components/RunConfigModal';
 import { WorkflowDashboardModal } from './components/WorkflowDashboardModal';
 import { NodeConfigModal } from './components/NodeConfigModal';
+import { RunHistoryModal } from './components/RunHistoryModal';
 import type { NodeRunData } from './types/workflow';
 import PuppyNode from './components/nodes/PuppyNode';
 import StartNode from './components/nodes/StartNode';
@@ -18,6 +18,8 @@ import { useWorkflowDragDrop } from './hooks/useWorkflowDragDrop';
 const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode };
 
 function App() {
+  const [runHistoryOpen, setRunHistoryOpen] = useState(false);
+
   const {
     nodes, setNodes, onNodesChange,
     edges, setEdges, onEdgesChange,
@@ -34,11 +36,11 @@ function App() {
   } = useWorkflowState();
 
   const {
-    runId, setRunId,
+    setRunId,
     runStatus, setRunStatus,
-    isPolling, setIsPolling,
+    setIsPolling,
     runConfigOpen, setRunConfigOpen,
-    rootNodeData, setRootNodeData,
+    rootNodeData,
     executeRun,
     handleResume,
     prepareRun,
@@ -96,7 +98,9 @@ function App() {
         setWorkflowName={setWorkflowName}
         runStatus={runStatus}
         nodesLength={nodes.length}
+        workflowId={workflowId}
         onOpenDashboard={() => setDashboardOpen(true)}
+        onOpenRunHistory={() => setRunHistoryOpen(true)}
         onSaveWorkflow={saveWorkflow}
         onCreateNewFlow={handleCreateNewFlow}
         onClearCanvas={createNewWorkflow}
@@ -153,6 +157,12 @@ function App() {
         onSave={handleSaveNodeConfig}
         onDelete={handleDeleteNode}
         node={editingNode}
+      />
+
+      <RunHistoryModal
+        isOpen={runHistoryOpen}
+        onClose={() => setRunHistoryOpen(false)}
+        workflowId={workflowId}
       />
     </div>
   );

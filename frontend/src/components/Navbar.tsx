@@ -1,12 +1,14 @@
 import React from 'react';
-import { Play, Loader2, FolderOpen, Save } from 'lucide-react';
+import { Play, Loader2, FolderOpen, Save, History } from 'lucide-react';
 
 interface NavbarProps {
   workflowName: string;
   setWorkflowName: (name: string) => void;
   runStatus: string;
   nodesLength: number;
+  workflowId: string | null;
   onOpenDashboard: () => void;
+  onOpenRunHistory: () => void;
   onSaveWorkflow: (showAlert?: boolean) => void;
   onCreateNewFlow: () => void;
   onClearCanvas: () => void;
@@ -18,7 +20,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   setWorkflowName,
   runStatus,
   nodesLength,
+  workflowId,
   onOpenDashboard,
+  onOpenRunHistory,
   onSaveWorkflow,
   onCreateNewFlow,
   onClearCanvas,
@@ -68,6 +72,15 @@ export const Navbar: React.FC<NavbarProps> = ({
         >
           <FolderOpen className="w-4 h-4 text-blue-600" /> My Workflows
         </button>
+
+        {workflowId && (
+          <button
+            onClick={onOpenRunHistory}
+            className="px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded shadow-sm transition-colors cursor-pointer flex items-center gap-1"
+          >
+            <History className="w-4 h-4 text-purple-600" /> Run History
+          </button>
+        )}
 
         <button
           onClick={() => onSaveWorkflow(true)}

@@ -108,7 +108,6 @@ async def format_run_response(run_id: str, workflow: Workflow, graph, config: di
         status = WorkflowStatus.PAUSED if is_paused else WorkflowStatus.COMPLETED
 
     values = state_snapshot.values or {}
-    context = values.get("context", {})
     executed_nodes = values.get("executed_nodes", [])
     node_inputs_map = values.get("node_inputs", {})
     node_outputs_map = values.get("node_outputs", {})
@@ -142,7 +141,6 @@ async def format_run_response(run_id: str, workflow: Workflow, graph, config: di
         "workflow_id": str(workflow.id),
         "workflow": workflow,
         "status": status,
-        "global_context": context,
         "node_runs": node_runs,
         "created_at": now,
         "updated_at": now
@@ -243,6 +241,35 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
         await run_record.save()
 
     return response_data
+
+# @router.get("/runs/{run_id}/nodes/{node_id}/history")
+# async def get_node_history(run_id: str, node_id: str, workflow_id: str):
+#     try:
+#         wf_oid = PydanticObjectId(workflow_id)
+#     except Exception:
+#         raise HTTPException(status_code=400, detail="Invalid workflow_id")
+#
+#     workflow = await Workflow.get(wf_oid)
+#     if not workflow:
+#         raise HTTPException(status_code=404, detail="Workflow not found")
+#
+#     graph = await build_graph_for_workflow(workflow)
+#     config = {"configurable": {"thread_id": run_id}}
+#
+#     history = []
+#     async for snapshot in graph.aget_state_history(config):
+#         values = snapshot.values or {}
+#         if values.get("current_node_id") != node_id:
+#             continue
+#         history.append({
+#             "checkpoint_id": snapshot.config.get("configurable", {}).get("checkpoint_id"),
+#             "created_at": snapshot.created_at,
+#             "inputs": (values.get("node_inputs") or {}).get(node_id),
+#             "outputs": (values.get("node_outputs") or {}).get(node_id),
+#         })
+#
+#     return history
+
 
 @router.get("/runs/{run_id}")
 async def get_run(run_id: str, workflow_id: str):

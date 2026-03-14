@@ -22,7 +22,7 @@ def build_workflow_graph(workflow_model, skills_map, mongo_client: MongoClient):
     # Add Nodes
     def make_start_executor(nid):
         def start_executor(state):
-            return {"executed_nodes": [nid]}
+            return {"executed_nodes": [nid], "current_node_id": nid}
         return start_executor
 
     for node in workflow_model.nodes:
@@ -59,14 +59,8 @@ def build_workflow_graph(workflow_model, skills_map, mongo_client: MongoClient):
 
 def _build_node_inputs(context: dict, skill_model) -> dict:
     """
-    Build inputs for a node execution by mapping context keys to the skill's input_schema.
-
-    Strategy:
-    - Always include all context keys so skills can access the full accumulated state.
-    - For schema keys not present in context, try positional mapping from context keys
-      that are not already covered by the schema. This handles the common case where
-      a Start Node provides a value under one key (e.g. 'manual_input_text') and the
-      downstream skill expects a different key (e.g. 'query').
+    Map the current context (previous node's output) to this skill's input_schema keys.
+    For unmatched schema keys, try positional mapping from unmatched context values.
     """
     inputs = dict(context)
 
@@ -90,10 +84,8 @@ def make_langgraph_node(node_model, skill_model):
     """
     async def executor(state: WorkflowState) -> dict:
         print(f"Executing node: {node_model.name} ({node_model.id})")
-        current_context = state.get("context", {})
 
-        # Map context keys to skill's expected input_schema keys
-        node_inputs = _build_node_inputs(current_context, skill_model)
+        node_inputs = _build_node_inputs(state.get("context", {}), skill_model)
 
         try:
             if skill_model.type == "llm":
@@ -111,6 +103,7 @@ def make_langgraph_node(node_model, skill_model):
         return {
             "context": context_update,
             "executed_nodes": [node_model.id],
+            "current_node_id": node_model.id,
             "node_inputs": {node_model.id: node_inputs},
             "node_outputs": {node_model.id: context_update},
         }
