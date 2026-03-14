@@ -14,5 +14,9 @@ class WorkflowState(TypedDict):
     context: Annotated[dict[str, Any], merge_dicts]
     # List of node IDs executed, appending using operator.add
     executed_nodes: Annotated[list[str], operator.add]
+    # Per-node inputs snapshot: {node_id: {key: value}}
+    node_inputs: Annotated[dict[str, Any], merge_dicts]
+    # Per-node outputs snapshot: {node_id: {key: value}}
+    node_outputs: Annotated[dict[str, Any], merge_dicts]
     # Optional error message tracking
     error: str

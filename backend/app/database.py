@@ -1,19 +1,25 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
+from typing import Optional
 import os
 from beanie import init_beanie
-from app.models.workflow import Workflow, Skill
+from app.models.workflow import Workflow, Skill, WorkflowRun
 
-# LangGraph Checkpointer - MongoClient
+# LangGraph Checkpointer - MongoClient (singleton to avoid per-request connection leaks)
+_mongo_client: Optional[MongoClient] = None
+
 def get_mongo_client() -> MongoClient:
-    uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-    return MongoClient(uri)
+    global _mongo_client
+    if _mongo_client is None:
+        uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+        _mongo_client = MongoClient(uri)
+    return _mongo_client
 
 # beanie - AsyncIOMotorClient
 async def init_db(uri: str = "mongodb://localhost:27017", db_name: str = os.getenv("MONGO_DB_NAME", "puppy_agent_flow")):
     client = AsyncIOMotorClient(uri)
     db = client[db_name]
-    await init_beanie(database=db, document_models=[Workflow, Skill])
+    await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun])
 
     # Initialize default skills if none exist
     if await Skill.find_all().count() == 0:

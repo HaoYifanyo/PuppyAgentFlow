@@ -2,15 +2,15 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Any, Optional, Dict, List
 from beanie import PydanticObjectId
-from app.models.workflow import Workflow, WorkflowRun, Skill
-from app.core.engine import WorkflowEngine
-from app.services.llm_executor import real_executor_callback
+from beanie.operators import In
+import uuid
+
+from app.models.workflow import Workflow, Skill, WorkflowRun, WorkflowStatus, NodeStatus
+from app.core.langgraph_engine import build_workflow_graph
+from app.database import get_mongo_client
 from app.services.skill_service import SkillFileService
 
 router = APIRouter()
-
-# Global engine instance with real LLM executor
-engine = WorkflowEngine(executor_callback=real_executor_callback)
 
 @router.get("/skills", response_model=List[Skill])
 async def list_skills():
@@ -83,15 +83,10 @@ async def delete_workflow(id: PydanticObjectId):
     await workflow.delete()
     return {"message": "Workflow deleted"}
 
-@router.post("/workflows/{id}/run", response_model=WorkflowRun)
-async def start_run(id: PydanticObjectId, inputs: Dict[str, Any] = None):
-    workflow = await Workflow.get(id)
-    if not workflow:
-        raise HTTPException(status_code=404, detail="Workflow not found")
+from datetime import datetime, timezone
 
-    run = engine.initialize_run(workflow)
-
-    # Fetch all required skills for this workflow
+async def build_graph_for_workflow(workflow: Workflow):
+    """Fetch skills and build LangGraph for a given workflow."""
     skill_ids = []
     for node in workflow.nodes:
         if node.skill_id and not node.is_start_node:
@@ -99,71 +94,173 @@ async def start_run(id: PydanticObjectId, inputs: Dict[str, Any] = None):
                 skill_ids.append(PydanticObjectId(node.skill_id))
             except Exception:
                 pass
-
-    from beanie.operators import In
     skills = await Skill.find(In(Skill.id, skill_ids)).to_list() if skill_ids else []
     skills_map = {str(s.id): s for s in skills}
+    return build_workflow_graph(workflow, skills_map, get_mongo_client())
 
-    # Override defaults if explicit inputs provided
-    if inputs:
-        # Override global context from Start Node if it exists
-        start_node = next((n for n in workflow.nodes if n.is_start_node), None)
-        if start_node:
-            current_defaults = run.global_context.get(start_node.id, {})
-            if isinstance(current_defaults, dict):
-                current_defaults.update(inputs)
-                run.global_context[start_node.id] = current_defaults
-                run.node_runs[start_node.id].outputs = current_defaults
+async def format_run_response(run_id: str, workflow: Workflow, graph, config: dict, override_status: WorkflowStatus = None):
+    state_snapshot = await graph.aget_state(config)
+    is_paused = len(state_snapshot.next) > 0
+
+    if override_status is not None:
+        status = override_status
+    else:
+        status = WorkflowStatus.PAUSED if is_paused else WorkflowStatus.COMPLETED
+
+    values = state_snapshot.values or {}
+    context = values.get("context", {})
+    executed_nodes = values.get("executed_nodes", [])
+    node_inputs_map = values.get("node_inputs", {})
+    node_outputs_map = values.get("node_outputs", {})
+
+    node_runs = {}
+    for node in workflow.nodes:
+        if override_status == WorkflowStatus.ERROR and node.id in state_snapshot.next:
+            node_runs[node.id] = {"node_id": node.id, "status": NodeStatus.ERROR}
+        elif node.id in executed_nodes:
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.COMPLETED,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+            }
+        elif is_paused and node.id in state_snapshot.next:
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.PAUSED,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+            }
         else:
-            # Fallback for unexpected cases (should not happen with mandatory start node)
-            run.global_context.update(inputs)
+            node_runs[node.id] = {"node_id": node.id, "status": NodeStatus.PENDING}
 
-    await run.insert()
+    now = datetime.now(timezone.utc)
 
-    # Execute workflow synchronous logic
-    engine.run(run, skills_map=skills_map)
-    await run.save()
-    return run
+    return {
+        "_id": run_id,
+        "id": run_id,
+        "workflow_id": str(workflow.id),
+        "workflow": workflow,
+        "status": status,
+        "global_context": context,
+        "node_runs": node_runs,
+        "created_at": now,
+        "updated_at": now
+    }
+
+@router.get("/workflows/{id}/runs")
+async def list_workflow_runs(id: str):
+    runs = await WorkflowRun.find({"workflow_id": id}).sort("-created_at").to_list()
+    return runs
+
+@router.post("/workflows/{id}/run")
+async def start_run(id: PydanticObjectId, inputs: Dict[str, Any] = None):
+    workflow = await Workflow.get(id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    run_id = str(uuid.uuid4())
+    run_record = WorkflowRun(id=run_id, workflow_id=str(workflow.id), status=WorkflowStatus.RUNNING)
+    await run_record.insert()
+
+    graph = await build_graph_for_workflow(workflow)
+
+    config = {"configurable": {"thread_id": run_id}}
+
+    # Initialize the state context using the Start Node config (manual_input_text)
+    # merged with any explicit inputs provided
+    start_node = next((n for n in workflow.nodes if getattr(n, 'is_start_node', False)), None)
+    initial_context = {}
+    if start_node and hasattr(start_node, 'config'):
+        initial_context["manual_input_text"] = start_node.config.get("manual_input_text", "")
+    if inputs:
+        initial_context.update(inputs)
+
+    initial_state = {
+        "context": initial_context,
+        "executed_nodes": []
+    }
+
+    try:
+        # invoke the graph asynchronously
+        await graph.ainvoke(initial_state, config=config)
+    except Exception as e:
+        run_record.status = WorkflowStatus.ERROR
+        await run_record.save()
+        raise HTTPException(status_code=500, detail=str(e))
+
+    response_data = await format_run_response(run_id, workflow, graph, config)
+
+    # Update status in WorkflowRun
+    run_record.status = WorkflowStatus(response_data["status"])
+    await run_record.save()
+
+    return response_data
 
 class ResumeRequest(BaseModel):
     action: str
     modified_outputs: Optional[Any] = None
 
-@router.post("/runs/{id}/nodes/{node_id}/resume", response_model=WorkflowRun)
-async def resume_run(id: PydanticObjectId, node_id: str, request: ResumeRequest):
-    run = await WorkflowRun.get(id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
+@router.post("/runs/{run_id}/resume")
+async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
+    try:
+        wf_oid = PydanticObjectId(workflow_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid workflow_id")
 
-    # Fetch skills
-    skill_ids = []
-    for node in run.workflow.nodes:
-        if node.skill_id and not node.is_start_node:
-            try:
-                skill_ids.append(PydanticObjectId(node.skill_id))
-            except Exception:
-                pass
-    from beanie.operators import In
-    skills = await Skill.find(In(Skill.id, skill_ids)).to_list() if skill_ids else []
-    skills_map = {str(s.id): s for s in skills}
+    workflow = await Workflow.get(wf_oid)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    graph = await build_graph_for_workflow(workflow)
+
+    config = {"configurable": {"thread_id": run_id}}
+
+    # Handle reject: terminate the run without resuming the graph
+    if request.action == "reject":
+        response_data = await format_run_response(run_id, workflow, graph, config, override_status=WorkflowStatus.ERROR)
+        run_record = await WorkflowRun.get(run_id)
+        if run_record:
+            run_record.status = WorkflowStatus.ERROR
+            await run_record.save()
+        return response_data
+
+    # Inject modified outputs into state before resuming
+    if request.modified_outputs:
+        await graph.aupdate_state(config, {"context": request.modified_outputs})
 
     try:
-        engine.resume(
-            run=run,
-            node_id=node_id,
-            action=request.action,
-            modified_outputs=request.modified_outputs,
-            skills_map=skills_map
-        )
-        await run.save()
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        await graph.ainvoke(None, config=config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    return run
+    response_data = await format_run_response(run_id, workflow, graph, config)
 
-@router.get("/runs/{id}", response_model=WorkflowRun)
-async def get_run(id: PydanticObjectId):
-    run = await WorkflowRun.get(id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-    return run
+    # Update status in WorkflowRun
+    run_record = await WorkflowRun.get(run_id)
+    if run_record:
+        run_record.status = WorkflowStatus(response_data["status"])
+        await run_record.save()
+
+    return response_data
+
+@router.get("/runs/{run_id}")
+async def get_run(run_id: str, workflow_id: str):
+    try:
+        wf_oid = PydanticObjectId(workflow_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid workflow_id")
+
+    workflow = await Workflow.get(wf_oid)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    graph = await build_graph_for_workflow(workflow)
+    config = {"configurable": {"thread_id": run_id}}
+
+    # Verify the thread exists in checkpoints
+    state_snapshot = await graph.aget_state(config)
+    if not state_snapshot or not hasattr(state_snapshot, 'values'):
+         raise HTTPException(status_code=404, detail="Run not found in checkpoint state")
+
+    return await format_run_response(run_id, workflow, graph, config)

@@ -13,7 +13,7 @@ load_dotenv()
 llm_client = LLMClient()
 tool_manager = ToolExecutorManager()
 
-def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
+async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
 
     if not isinstance(implementation, dict):
@@ -23,7 +23,6 @@ def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -
     config = implementation.get("config", {})
 
     # merge with node.config
-    # The engine has already attached the merged config to node.config.
     node_merged_config = getattr(node, "config", {})
     if node_merged_config:
         config.update(node_merged_config)
@@ -31,9 +30,10 @@ def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -
     if not executor:
         raise ValueError(f"Tool implementation missing 'executor': {implementation}")
 
+    # TODO: check if tool_manager.execute can be async, then use `await tool_manager.execute(...)`
     return tool_manager.execute(executor, config, inputs)
 
-def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
+async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
 
     if not isinstance(implementation, dict):
@@ -56,24 +56,18 @@ def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) ->
     input_str = json.dumps(inputs, ensure_ascii=False, indent=2)
     user_prompt = f"Additional Input Data:\n{input_str}"
 
-    # Try to grab output schema from node configuration first, then from skill
     output_schema = getattr(node, "config", {}).get("output_schema")
     if not output_schema and skill:
         output_schema = getattr(skill, "output_schema", {})
     if not output_schema:
          output_schema = {"result": "string"}
 
+    # TODO: check if llm_client.generate can be async
     return llm_client.generate(system_prompt, user_prompt, output_schema)
 
 def real_executor_callback(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
-    implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
-
-    if isinstance(implementation, dict) and "executor" in implementation:
-        return execute_tool_node(node, inputs, skill)
-    elif isinstance(implementation, dict) and "prompt_template" in implementation:
-        return execute_llm_node(node, inputs, skill)
-    else:
-        raise ValueError(f"Invalid node implementation structure: {implementation}")
+    # Deprecated with LangGraph refactor
+    pass
 
 def generate_skill_with_llm(instruction: str) -> Dict[str, Any]:
     system_prompt = """You are a software architect that creates JSON definitions for AI Workflow skills.

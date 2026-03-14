@@ -82,19 +82,10 @@ class Workflow(Document):
     def update_updated_at(self):
         self.updated_at = get_utc_now()
 
-class NodeRun(BaseModel):
-    node_id: str
-    status: NodeStatus = NodeStatus.PENDING
-    inputs: Dict[str, Any] = {}
-    outputs: Any = None
-    error_msg: Optional[str] = None
-
 class WorkflowRun(Document):
+    id: str = Field(alias="_id", description="Also serves as the LangGraph thread_id")
     workflow_id: str
-    workflow: Workflow # Embed for demo simplicity
     status: WorkflowStatus = WorkflowStatus.PENDING
-    global_context: Dict[str, Any] = {}
-    node_runs: Dict[str, NodeRun] = {}
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
 

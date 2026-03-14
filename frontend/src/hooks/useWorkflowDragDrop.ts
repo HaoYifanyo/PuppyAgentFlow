@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import type { Node, Edge, MarkerType } from "@xyflow/react";
+import { MarkerType } from "@xyflow/react";
+import type { Node, Edge } from "@xyflow/react";
 
 export const useWorkflowDragDrop = (
   nodes: Node[],

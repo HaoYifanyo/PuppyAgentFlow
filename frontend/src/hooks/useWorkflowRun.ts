@@ -156,7 +156,7 @@ export const useWorkflowRun = (
         );
 
         const res = await axios.post(
-          `/api/runs/${runId}/nodes/${nodeId}/resume`,
+          `/api/runs/${runId}/resume?workflow_id=${workflowId}`,
           {
             action,
             modified_outputs: modifiedOutputs,
@@ -178,14 +178,14 @@ export const useWorkflowRun = (
         );
       }
     },
-    [runId, setNodes, updateNodeStates]
+    [runId, workflowId, setNodes, updateNodeStates]
   );
 
   // Polling loop
   const pollRunStatus = useCallback(async () => {
-    if (!runId) return;
+    if (!runId || !workflowId) return;
     try {
-      const res = await axios.get(`/api/runs/${runId}`);
+      const res = await axios.get(`/api/runs/${runId}?workflow_id=${workflowId}`);
       const currentRun = res.data;
       setRunStatus(currentRun.status);
       updateNodeStates(currentRun);
@@ -197,7 +197,7 @@ export const useWorkflowRun = (
       console.error("Polling error", e);
       setIsPolling(false);
     }
-  }, [runId, updateNodeStates]);
+  }, [runId, workflowId, updateNodeStates]);
 
   useEffect(() => {
     if (isPolling && runId && ["running", "pending"].includes(runStatus)) {
