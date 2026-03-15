@@ -112,21 +112,34 @@ async def format_run_response(run_id: str, workflow: Workflow, graph, config: di
     node_inputs_map = values.get("node_inputs", {})
     node_outputs_map = values.get("node_outputs", {})
 
+    # The node awaiting approval is the last executed node (current_node_id)
+    current_node_id = values.get("current_node_id")
+    awaiting_approval_nodes: set[str] = set()
+    if is_paused and current_node_id:
+        current_node = next((n for n in workflow.nodes if n.id == current_node_id), None)
+        if current_node and getattr(current_node, 'require_approval', False):
+            awaiting_approval_nodes.add(current_node_id)
+
     node_runs = {}
     for node in workflow.nodes:
-        if override_status == WorkflowStatus.ERROR and node.id in state_snapshot.next:
-            node_runs[node.id] = {"node_id": node.id, "status": NodeStatus.ERROR}
+        if override_status == WorkflowStatus.ERROR and node.id in awaiting_approval_nodes:
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.ERROR,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+            }
+        elif node.id in awaiting_approval_nodes:
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.PAUSED,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+            }
         elif node.id in executed_nodes:
             node_runs[node.id] = {
                 "node_id": node.id,
                 "status": NodeStatus.COMPLETED,
-                "inputs": node_inputs_map.get(node.id),
-                "outputs": node_outputs_map.get(node.id),
-            }
-        elif is_paused and node.id in state_snapshot.next:
-            node_runs[node.id] = {
-                "node_id": node.id,
-                "status": NodeStatus.PAUSED,
                 "inputs": node_inputs_map.get(node.id),
                 "outputs": node_outputs_map.get(node.id),
             }

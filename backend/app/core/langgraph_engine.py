@@ -1,3 +1,4 @@
+from beanie import before_event
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from pymongo import MongoClient
@@ -48,6 +49,16 @@ def build_workflow_graph(workflow_model, skills_map, mongo_client: MongoClient):
     # Add explicit edges
     for edge in workflow_model.edges:
         builder.add_edge(edge.source, edge.target)
+
+    # TODO CHECK: LangGraph limitation: interrupt_after does not fire on nodes that implicitlytransition to END. 
+    # insert adummy pass-through node so the interrupt can fire before reaching __end__.
+    nodes_with_outgoing = {edge.source for edge in workflow_model.edges}
+    for node in workflow_model.nodes:
+        if node.id in approval_nodes and node.id not in nodes_with_outgoing:
+            dummy_id = f"__passthrough_{node.id}"
+            builder.add_node(dummy_id, lambda state: {})
+            builder.add_edge(node.id, dummy_id)
+            builder.add_edge(dummy_id, END)
 
     # Compile
     graph = builder.compile(
