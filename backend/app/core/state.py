@@ -10,8 +10,9 @@ def merge_dicts(a: dict, b: dict) -> dict:
     return {**a, **b}
 
 class WorkflowState(TypedDict):
-    # Shared dictionary context merged using the custom reducer
-    context: Annotated[dict[str, Any], merge_dicts]
+    # Each node's output fully replaces this field (no accumulation).
+    # Downstream nodes only see the direct predecessor's output, keeping data flow clean.
+    context: dict[str, Any]
     # List of node IDs executed, appending using operator.add
     executed_nodes: Annotated[list[str], operator.add]
     # Per-node inputs snapshot: {node_id: {key: value}}
