@@ -7,6 +7,7 @@ import { RunConfigModal } from './components/RunConfigModal';
 import { WorkflowDashboardModal } from './components/WorkflowDashboardModal';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { RunHistoryModal } from './components/RunHistoryModal';
+import { ErrorToast } from './components/ErrorToast';
 import type { NodeRunData } from './types/workflow';
 import PuppyNode from './components/nodes/PuppyNode';
 import StartNode from './components/nodes/StartNode';
@@ -44,7 +45,9 @@ function App() {
     executeRun,
     handleResume,
     prepareRun,
-    saveWorkflow
+    saveWorkflow,
+    error: runError,
+    setError: setRunError,
   } = useWorkflowRun(
     workflowId, setWorkflowId,
     workflowName, setWorkflowName,
@@ -93,6 +96,7 @@ function App() {
 
   return (
     <div className="w-screen h-screen flex flex-col font-sans bg-gray-50">
+      <ErrorToast message={runError} onDismiss={() => setRunError(null)} />
       <Navbar
         workflowName={workflowName}
         setWorkflowName={setWorkflowName}

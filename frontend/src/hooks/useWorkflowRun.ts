@@ -19,6 +19,8 @@ export const useWorkflowRun = (
   const [isPolling, setIsPolling] = useState(false);
   const pollingRef = useRef<number | null>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
   const [runConfigOpen, setRunConfigOpen] = useState(false);
   const [rootNodeData, setRootNodeData] = useState<{
     id: string;
@@ -116,9 +118,9 @@ export const useWorkflowRun = (
         setRunStatus(run.status);
         updateNodeStates(run);
         setIsPolling(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert("Failed to start run");
+        setError(err.response?.data?.detail ?? "Failed to start run.");
         setRunStatus("error");
         setNodes((nds) =>
           nds.map((n) => ({
@@ -168,7 +170,7 @@ export const useWorkflowRun = (
         setIsPolling(true); // resume polling
       } catch (err: any) {
         console.error(err);
-        alert(`Resume failed: ${err.response?.data?.detail || err.message}`);
+        setError(err.response?.data?.detail ?? err.message ?? "Resume failed.");
         setRunStatus("error");
         setNodes((nds) =>
           nds.map((n) => ({
@@ -216,14 +218,14 @@ export const useWorkflowRun = (
   // Prepare Run
   const prepareRun = useCallback(() => {
     if (nodes.length === 0) {
-      alert("Please add at least one node to the canvas.");
+      setError("Please add at least one node to the canvas.");
       return;
     }
 
     const startNode = nodes.find((n) => n.data?.node?.is_start_node);
 
     if (!startNode) {
-      alert("Workflow is missing a Start Node.");
+      setError("Workflow is missing a Start Node.");
       return;
     }
 
@@ -257,5 +259,7 @@ export const useWorkflowRun = (
     handleResume,
     prepareRun,
     saveWorkflow,
+    error,
+    setError,
   };
 };
