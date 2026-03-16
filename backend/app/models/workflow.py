@@ -46,10 +46,29 @@ class Skill(Document):
         base_dir = os.path.join("skills")
         return os.path.join(base_dir, self.get_slug(), "SKILL.md")
 
+class Agent(Document):
+    name: str
+    provider: str = Field(..., description="gemini | openai | anthropic | custom")
+    model_id: str
+    api_key_encrypted: Optional[str] = Field(default=None)
+    system_prompt: Optional[str] = None
+    base_url: Optional[str] = None
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+
+    class Settings:
+        name = "agents"
+
+    @before_event(Replace, Insert)
+    def update_updated_at(self):
+        self.updated_at = get_utc_now()
+
+
 class Node(BaseModel):
     id: str
     name: str
     skill_id: str
+    agent_id: Optional[str] = None
     require_approval: bool = False
     is_start_node: bool = False
     position: Optional[Dict[str, float]] = None

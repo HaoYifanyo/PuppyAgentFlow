@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Loader2, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal } from 'lucide-react';
+import { Play, Loader2, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog } from 'lucide-react';
 
 interface NavbarProps {
   workflowName: string;
@@ -13,6 +13,7 @@ interface NavbarProps {
   onCreateNewFlow: () => void;
   onClearCanvas: () => void;
   onPrepareRun: () => void;
+  onOpenAgentLibrary: () => void;
 }
 
 const IconButton: React.FC<{
@@ -42,7 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSaveWorkflow,
   onCreateNewFlow,
   onClearCanvas,
-  onPrepareRun
+  onPrepareRun,
+  onOpenAgentLibrary,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -102,6 +104,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Icon buttons */}
         <IconButton onClick={onOpenDashboard} title="My Workflows">
           <FolderOpen className="w-4 h-4 text-blue-500" />
+        </IconButton>
+
+        <IconButton onClick={onOpenAgentLibrary} title="Puppy Agents">
+          <Dog className="w-4 h-4 text-orange-500" />
         </IconButton>
 
         {workflowId && (

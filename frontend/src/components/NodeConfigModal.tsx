@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Save } from 'lucide-react';
+import { X, Trash2, Save, Dog } from 'lucide-react';
+import type { Agent } from '../types/workflow';
 
 interface WorkflowNode {
   id: string;
   name: string;
   skill_id: string;
+  agent_id?: string;
   require_approval: boolean;
   is_start_node?: boolean;
   config?: Record<string, any>;
@@ -16,6 +18,8 @@ interface NodeConfigModalProps {
   onSave: (nodeId: string, updatedData: Partial<WorkflowNode>) => void;
   onDelete: (nodeId: string) => void;
   node: WorkflowNode | null;
+  agents?: Agent[];
+  skillType?: string;
 }
 
 export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
@@ -23,21 +27,23 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   onClose,
   onSave,
   onDelete,
-  node
+  node,
+  agents = [],
+  skillType,
 }) => {
   const [name, setName] = useState('');
   const [requireApproval, setRequireApproval] = useState(false);
   const [configStr, setConfigStr] = useState('');
+  const [agentId, setAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  // Load node data when modal opens
   useEffect(() => {
     if (isOpen && node) {
       setName(node.name || '');
       setRequireApproval(node.require_approval || false);
+      setAgentId(node.agent_id || '');
 
       if (node.is_start_node) {
-        // Extract text directly for Start Node
         const manualText = node.config?.manual_input_text || '';
         setConfigStr(manualText);
       } else {
@@ -49,14 +55,16 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
 
   if (!isOpen || !node) return null;
 
+  const isLlmNode = skillType === 'llm';
+
   const handleSave = () => {
     setError(null);
     let parsedConfig = {};
 
     if (node.is_start_node) {
       parsedConfig = {
-        trigger_type: "manual",
-        manual_input_text: configStr
+        trigger_type: 'manual',
+        manual_input_text: configStr,
       };
     } else {
       try {
@@ -69,22 +77,27 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       }
     }
 
-    onSave(node.id, {
+    const updatedData: Partial<WorkflowNode> = {
       name,
       require_approval: requireApproval,
-      config: parsedConfig
-    });
+      config: parsedConfig,
+      agent_id: agentId || undefined,
+    };
+
+    onSave(node.id, updatedData);
   };
 
   const handleDelete = () => {
     if (node.is_start_node) {
-      alert("The Start Node cannot be deleted.");
+      alert('The Start Node cannot be deleted.');
       return;
     }
     if (window.confirm(`Are you sure you want to delete the node "${node.name}"?`)) {
       onDelete(node.id);
     }
   };
+
+  const selectedAgent = agents.find(a => (a._id || a.id) === agentId);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -133,6 +146,40 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
             />
           </div>
 
+          {/* Puppy Agent Selector — only for LLM nodes */}
+          {!node.is_start_node && isLlmNode && (
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                <Dog className="w-3.5 h-3.5 text-blue-500" /> Puppy Agent
+              </label>
+              <select
+                value={agentId}
+                onChange={e => setAgentId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+              >
+                <option value="">None (use global default)</option>
+                {agents.map(agent => {
+                  const id = agent._id || agent.id || '';
+                  return (
+                    <option key={id} value={id}>
+                      {agent.name} — {agent.provider} / {agent.model_id}
+                    </option>
+                  );
+                })}
+              </select>
+              {selectedAgent && (
+                <p className="text-[10px] text-blue-600 mt-1">
+                  Using: <span className="font-mono">{selectedAgent.model_id}</span> via {selectedAgent.provider}
+                </p>
+              )}
+              {agents.length === 0 && (
+                <p className="text-[10px] text-gray-400 mt-1">
+                  No agents configured. Open Puppy Agents from the navbar to create one.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Require Approval Switch */}
           {!node.is_start_node && (
             <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
@@ -152,7 +199,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
             </div>
           )}
 
-          {/* Config Field (Different for Start Node vs Normal Node) */}
+          {/* Config Field */}
           {node.is_start_node ? (
             <div className="space-y-1">
               <label className="text-xs font-semibold text-gray-700 block">Default Input Text</label>

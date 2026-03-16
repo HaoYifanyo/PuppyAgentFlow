@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import axios from 'axios';
 import { ReactFlow, MiniMap, Controls, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Navbar } from './components/Navbar';
@@ -7,8 +8,9 @@ import { RunConfigModal } from './components/RunConfigModal';
 import { WorkflowDashboardModal } from './components/WorkflowDashboardModal';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { RunHistoryModal } from './components/RunHistoryModal';
+import { AgentLibraryModal } from './components/AgentLibraryModal';
 import { ErrorToast } from './components/ErrorToast';
-import type { NodeRunData } from './types/workflow';
+import type { NodeRunData, Agent } from './types/workflow';
 import PuppyNode from './components/nodes/PuppyNode';
 import StartNode from './components/nodes/StartNode';
 
@@ -20,6 +22,32 @@ const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode };
 
 function App() {
   const [runHistoryOpen, setRunHistoryOpen] = useState(false);
+  const [agentLibraryOpen, setAgentLibraryOpen] = useState(false);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string }[]>([]);
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/agents');
+      setAgents(res.data);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  const fetchSkills = useCallback(async () => {
+    try {
+      const res = await axios.get('/api/skills');
+      setSkills(res.data);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+    fetchSkills();
+  }, [fetchAgents, fetchSkills]);
 
   const {
     nodes, setNodes, onNodesChange,
@@ -109,6 +137,7 @@ function App() {
         onCreateNewFlow={handleCreateNewFlow}
         onClearCanvas={createNewWorkflow}
         onPrepareRun={prepareRun}
+        onOpenAgentLibrary={() => setAgentLibraryOpen(true)}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -161,6 +190,14 @@ function App() {
         onSave={handleSaveNodeConfig}
         onDelete={handleDeleteNode}
         node={editingNode}
+        agents={agents}
+        skillType={editingNode ? (skills.find(s => (s._id || s.id) === editingNode.skill_id)?.type) : undefined}
+      />
+
+      <AgentLibraryModal
+        isOpen={agentLibraryOpen}
+        onClose={() => setAgentLibraryOpen(false)}
+        onAgentsChange={fetchAgents}
       />
 
       <RunHistoryModal

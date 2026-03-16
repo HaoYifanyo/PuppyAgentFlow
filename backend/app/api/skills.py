@@ -33,7 +33,7 @@ async def generate_skill(request: Dict[str, str]):
     from app.services.llm_executor import generate_skill_with_llm
 
     try:
-        skill_data = generate_skill_with_llm(instruction)
+        skill_data = await generate_skill_with_llm(instruction)
         skill = Skill(**skill_data)
         await skill.insert()
         try:

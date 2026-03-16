@@ -1,17 +1,47 @@
 import json
-from typing import Any, Dict
-from app.models.workflow import Node, Skill
 import os
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+from app.models.workflow import Node, Skill, Agent
 from app.services.llm_client import LLMClient
 from app.services.tool_executor import ToolExecutorManager
+from app.services.crypto_utils import decrypt_text
+import asyncio
 
 load_dotenv()
 
-llm_client = LLMClient()
 tool_manager = ToolExecutorManager()
+
+
+async def _get_llm_client(node: Node) -> LLMClient:
+    """
+    Build an LLMClient based on the agent referenced by node.agent_id.
+    An explicit Puppy Agent with api_key is required; no environment fallback.
+    """
+    agent_id = getattr(node, "agent_id", None)
+    if not agent_id:
+        raise RuntimeError("LLM node must have a Puppy Agent assigned. Please select an agent in the node settings.")
+
+    from beanie import PydanticObjectId
+
+    agent = await Agent.get(PydanticObjectId(agent_id))
+    if not agent:
+        raise RuntimeError(f"Agent not found for id: {agent_id}")
+
+    api_key = decrypt_text(agent.api_key_encrypted)
+    if not api_key:
+        raise RuntimeError("Agent is missing API key. Please update the Puppy Agent with a valid key.")
+
+    return LLMClient(
+        provider=agent.provider,
+        model=agent.model_id,
+        api_key=api_key,
+        base_url=agent.base_url or None,
+    )
+
 
 async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
@@ -22,7 +52,6 @@ async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = N
     executor = implementation.get("executor")
     config = implementation.get("config", {})
 
-    # merge with node.config
     node_merged_config = getattr(node, "config", {})
     if node_merged_config:
         config.update(node_merged_config)
@@ -30,8 +59,8 @@ async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = N
     if not executor:
         raise ValueError(f"Tool implementation missing 'executor': {implementation}")
 
-    # TODO: check if tool_manager.execute can be async, then use `await tool_manager.execute(...)`
     return tool_manager.execute(executor, config, inputs)
+
 
 async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
@@ -53,6 +82,19 @@ async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = No
             prompt_template = prompt_template.replace(placeholder, str(val))
 
     system_prompt = prompt_template
+
+    # Apply agent-level system prompt override (prepended)
+    agent_id = getattr(node, "agent_id", None)
+    if agent_id:
+        from app.models.workflow import Agent
+        from beanie import PydanticObjectId
+        try:
+            agent = await Agent.get(PydanticObjectId(agent_id))
+            if agent and agent.system_prompt:
+                system_prompt = agent.system_prompt + "\n\n" + system_prompt
+        except Exception:
+            pass
+
     input_str = json.dumps(inputs, ensure_ascii=False, indent=2)
     user_prompt = f"Additional Input Data:\n{input_str}"
 
@@ -60,16 +102,38 @@ async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = No
     if not output_schema and skill:
         output_schema = getattr(skill, "output_schema", {})
     if not output_schema:
-         output_schema = {"result": "string"}
+        output_schema = {"result": "string"}
 
-    # TODO: check if llm_client.generate can be async
-    return llm_client.generate(system_prompt, user_prompt, output_schema)
+    llm_client = await _get_llm_client(node)
+    return await llm_client.generate(system_prompt, user_prompt, output_schema)
 
-def real_executor_callback(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
-    # Deprecated with LangGraph refactor
-    pass
 
-def generate_skill_with_llm(instruction: str) -> Dict[str, Any]:
+async def generate_skill_with_llm(instruction: str) -> Dict[str, Any]:
+    """Uses the first available Puppy Agent to generate a skill definition.
+
+    Preference order: gemini > openai > anthropic > custom.
+    """
+
+
+    async def _pick_agent() -> Agent:
+        for provider in ("gemini", "openai", "anthropic", "custom"):
+            agent = await Agent.find_one(Agent.provider == provider)
+            if agent is not None:
+                return agent
+        raise RuntimeError("No Puppy Agent configured. Please create at least one agent before generating skills.")
+
+    agent = await _pick_agent()
+    api_key = decrypt_text(agent.api_key_encrypted)
+    if not api_key:
+        raise RuntimeError("Selected agent for skill generation has no API key configured.")
+
+    llm_client = LLMClient(
+        provider=agent.provider,
+        model=agent.model_id,
+        api_key=api_key,
+        base_url=agent.base_url or None,
+    )
+
     system_prompt = """You are a software architect that creates JSON definitions for AI Workflow skills.
 Given a user's natural language request to create a node/skill, generate a JSON object representing the skill.
 
@@ -85,21 +149,26 @@ The JSON object MUST follow this exact schema:
   }
 }"""
     user_prompt = f"User Request: {instruction}\nGenerate the JSON skill definition:"
-    raw_text = llm_client.generate(system_prompt, user_prompt)
+    raw_text = await llm_client.generate(system_prompt, user_prompt)
 
     print(raw_text)
     if isinstance(raw_text, dict):
         skill_data = raw_text
     else:
-        if raw_text.startswith("```json"): raw_text = raw_text[7:]
-        if raw_text.startswith("```"): raw_text = raw_text[3:]
-        if raw_text.endswith("```"): raw_text = raw_text[:-3]
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        if raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
         skill_data = json.loads(raw_text.strip())
 
     required_keys = ["name", "type", "description", "implementation"]
     for key in required_keys:
         if key not in skill_data:
             skill_data[key] = f"Generated {key}"
-    if "input_schema" not in skill_data: skill_data["input_schema"] = {"input": "string"}
-    if "output_schema" not in skill_data: skill_data["output_schema"] = {"output": "string"}
+    if "input_schema" not in skill_data:
+        skill_data["input_schema"] = {"input": "string"}
+    if "output_schema" not in skill_data:
+        skill_data["output_schema"] = {"output": "string"}
     return skill_data

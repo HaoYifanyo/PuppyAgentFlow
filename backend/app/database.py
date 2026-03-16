@@ -3,7 +3,7 @@ from pymongo import MongoClient
 from typing import Optional
 import os
 from beanie import init_beanie
-from app.models.workflow import Workflow, Skill, WorkflowRun
+from app.models.workflow import Workflow, Skill, WorkflowRun, Agent
 
 # LangGraph Checkpointer - MongoClient (singleton to avoid per-request connection leaks)
 _mongo_client: Optional[MongoClient] = None
@@ -19,7 +19,7 @@ def get_mongo_client() -> MongoClient:
 async def init_db(uri: str = "mongodb://localhost:27017", db_name: str = os.getenv("MONGO_DB_NAME", "puppy_agent_flow")):
     client = AsyncIOMotorClient(uri)
     db = client[db_name]
-    await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun])
+    await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun, Agent])
 
     # Initialize default skills if none exist
     if await Skill.find_all().count() == 0:

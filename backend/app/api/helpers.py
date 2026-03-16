@@ -45,27 +45,38 @@ async def format_run_response(
 ) -> dict:
     state_snapshot = await graph.aget_state(config)
     is_paused = len(state_snapshot.next) > 0
+    values = state_snapshot.values or {}
+    has_error = bool(values.get("error"))
 
     if override_status is not None:
         status = override_status
+    elif has_error:
+        status = WorkflowStatus.ERROR
     else:
         status = WorkflowStatus.PAUSED if is_paused else WorkflowStatus.COMPLETED
 
-    values = state_snapshot.values or {}
     executed_nodes = values.get("executed_nodes", [])
     node_inputs_map = values.get("node_inputs", {})
     node_outputs_map = values.get("node_outputs", {})
 
     current_node_id = values.get("current_node_id")
     awaiting_approval_nodes: set[str] = set()
-    if is_paused and current_node_id:
+    if is_paused and current_node_id and not has_error:
         current_node = next((n for n in workflow.nodes if n.id == current_node_id), None)
         if current_node and getattr(current_node, "require_approval", False):
             awaiting_approval_nodes.add(current_node_id)
 
     node_runs = {}
     for node in workflow.nodes:
-        if override_status == WorkflowStatus.ERROR and node.id in awaiting_approval_nodes:
+        if has_error and node.id == current_node_id:
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.ERROR,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+                "error": values.get("error")
+            }
+        elif override_status == WorkflowStatus.ERROR and node.id in awaiting_approval_nodes:
             node_runs[node.id] = {
                 "node_id": node.id,
                 "status": NodeStatus.ERROR,

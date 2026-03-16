@@ -106,7 +106,10 @@ def make_langgraph_node(node_model, skill_model):
         except Exception as e:
             return {
                 "error": str(e),
-                "executed_nodes": [node_model.id]
+                "executed_nodes": [node_model.id],
+                "current_node_id": node_model.id,
+                "node_inputs": {node_model.id: node_inputs},
+                "node_outputs": {node_model.id: {"error": str(e)}},
             }
 
         context_update = output if isinstance(output, dict) else {"result": output}
