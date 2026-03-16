@@ -45,6 +45,23 @@ async def generate_skill(request: Dict[str, str]):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate skill: {str(e)}")
 
+@router.put("/skills/{id}", response_model=Skill)
+async def update_skill(id: PydanticObjectId, skill_data: Dict[str, Any]):
+    skill = await Skill.get(id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+
+    for field in ("name", "type", "description", "implementation", "input_schema", "output_schema"):
+        if field in skill_data:
+            setattr(skill, field, skill_data[field])
+
+    await skill.save()
+    try:
+        SkillFileService.save(skill)
+    except Exception as e:
+        print(f"Warning: Failed to save skill to disk: {e}")
+    return skill
+
 @router.delete("/skills/{id}")
 async def delete_skill(id: PydanticObjectId):
     skill = await Skill.get(id)
