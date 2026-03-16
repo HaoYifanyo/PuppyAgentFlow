@@ -1,0 +1,9 @@
+from fastapi import APIRouter
+
+from app.api import skills, workflows, runs
+
+router = APIRouter()
+
+router.include_router(skills.router)
+router.include_router(workflows.router)
+router.include_router(runs.router)
