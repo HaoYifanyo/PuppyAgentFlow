@@ -27,7 +27,7 @@ export default memo(({ data }: any) => {
           <div className="text-[10px] text-gray-500">Entry Point</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Right} className="w-2 h-2 !bg-green-500" />
+      <Handle type="source" position={Position.Right} className="w-2 h-2 !bg-green-500" data-testid="start-handle" />
     </div>
   );
 });

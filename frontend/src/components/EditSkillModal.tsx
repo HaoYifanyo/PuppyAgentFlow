@@ -126,6 +126,7 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
           <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-600 block">Description</label>
             <textarea
+              data-testid="edit-skill-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}

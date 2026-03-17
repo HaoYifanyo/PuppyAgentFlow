@@ -130,6 +130,7 @@ const PuppyNode = ({ data }: NodeProps) => {
         type="target"
         position={Position.Left}
         className="w-3 h-3 bg-gray-400"
+        data-testid="puppy-handle-target"
       />
 
       {/* Header */}

@@ -249,6 +249,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
             </button>
             <button
               onClick={handleSave}
+              data-testid="node-config-save"
               className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
             >
               <Save className="w-4 h-4" /> Save

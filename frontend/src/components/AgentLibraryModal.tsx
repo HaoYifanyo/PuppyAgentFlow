@@ -39,6 +39,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [apiKeyModified, setApiKeyModified] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const fetchAgents = async () => {
     try {
@@ -137,13 +138,17 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedId) return;
-    if (!window.confirm('Delete this agent?')) return;
+  const handleDeleteClick = () => {
+    if (selectedId) setConfirmDeleteId(selectedId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmDeleteId) return;
     try {
-      await axios.delete(`/api/agents/${selectedId}`);
+      await axios.delete(`/api/agents/${confirmDeleteId}`);
       setSelectedId(null);
       setForm(EMPTY_FORM);
+      setConfirmDeleteId(null);
       await fetchAgents();
       onAgentsChange();
     } catch {
@@ -164,7 +169,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
           <h3 className="font-bold text-gray-800 text-sm flex items-center gap-2">
             <Dog className="w-4 h-4 text-blue-500" /> Puppy Agents
           </h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 p-1">
+          <button onClick={onClose} data-testid="agent-modal-close" className="text-gray-500 hover:text-gray-700 p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -221,6 +226,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                     <label className="text-xs font-semibold text-gray-700 block">Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
+                      data-testid="agent-name-input"
                       value={form.name}
                       onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -260,6 +266,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                     <div className="relative">
                       <input
                         type={showApiKey ? 'text' : 'password'}
+                        data-testid="agent-api-key-input"
                         value={form.api_key}
                         onChange={e => {
                           setApiKeyModified(true);
@@ -310,18 +317,39 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                 {/* Footer */}
                 <div className="p-4 border-t bg-gray-50 flex justify-between items-center">
                   {!isNew ? (
-                    <button
-                      onClick={handleDelete}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                    </button>
+                    confirmDeleteId ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-red-600 font-medium">Delete this agent?</span>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-0.5 text-[10px] rounded border border-gray-300 text-gray-600 hover:bg-gray-50 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteConfirm}
+                          data-testid="agent-delete-confirm"
+                          className="px-2 py-0.5 text-[10px] rounded bg-red-600 text-white hover:bg-red-700 cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleDeleteClick}
+                        data-testid="agent-delete-btn"
+                        className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    )
                   ) : <div />}
                   <div className="flex items-center gap-3">
                     {saveSuccess && <span className="text-xs text-green-600 font-medium flex items-center gap-1">✓ Saved successfully</span>}
                     <button
                       onClick={handleSave}
                       disabled={saving}
+                      data-testid="agent-save-btn"
                       className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save'}

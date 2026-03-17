@@ -169,6 +169,7 @@ export const Sidebar = () => {
                     </button>
                     <button
                       onClick={() => handleDelete(id)}
+                      data-testid="skill-delete-confirm"
                       className="px-2 py-0.5 text-[10px] rounded bg-red-600 text-white hover:bg-red-700 cursor-pointer"
                     >
                       Delete
