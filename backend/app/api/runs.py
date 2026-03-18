@@ -29,6 +29,11 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
     graph = await build_graph_for_workflow(workflow)
     config = {"configurable": {"thread_id": run_id}}
 
+    run_record = await WorkflowRun.get(run_id)
+    if run_record:
+        run_record.status = WorkflowStatus.RUNNING
+        await run_record.save()
+
     if request.action == "reject":
         response_data = await format_run_response(
             run_id, workflow, graph, config, override_status=WorkflowStatus.ERROR
@@ -71,8 +76,13 @@ async def get_run(run_id: str, workflow_id: str):
     graph = await build_graph_for_workflow(workflow)
     config = {"configurable": {"thread_id": run_id}}
 
+    run_record = await WorkflowRun.find_one(WorkflowRun.id == run_id)
+    status_override = None
+    if run_record and run_record.status == WorkflowStatus.RUNNING:
+        status_override = WorkflowStatus.RUNNING
+
     state_snapshot = await graph.aget_state(config)
     if not state_snapshot or not hasattr(state_snapshot, "values"):
         raise HTTPException(status_code=404, detail="Run not found in checkpoint state")
 
-    return await format_run_response(run_id, workflow, graph, config)
+    return await format_run_response(run_id, workflow, graph, config, override_status=status_override)

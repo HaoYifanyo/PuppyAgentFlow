@@ -4,7 +4,7 @@ from beanie import PydanticObjectId
 from beanie.operators import In
 from fastapi import HTTPException
 
-from app.models.workflow import Skill, Workflow, WorkflowStatus, NodeStatus
+from app.models.workflow import Skill, Workflow, WorkflowRun, WorkflowStatus, NodeStatus
 from app.core.langgraph_engine import build_workflow_graph
 from app.database import get_mongo_client
 
@@ -44,7 +44,7 @@ async def format_run_response(
     override_status: WorkflowStatus = None,
 ) -> dict:
     state_snapshot = await graph.aget_state(config)
-    is_paused = len(state_snapshot.next) > 0
+    has_next = len(state_snapshot.next) > 0
     values = state_snapshot.values or {}
     has_error = bool(values.get("error"))
 
@@ -52,16 +52,19 @@ async def format_run_response(
         status = override_status
     elif has_error:
         status = WorkflowStatus.ERROR
+    elif has_next:
+        status = WorkflowStatus.PAUSED
     else:
-        status = WorkflowStatus.PAUSED if is_paused else WorkflowStatus.COMPLETED
+        status = WorkflowStatus.COMPLETED
 
     executed_nodes = values.get("executed_nodes", [])
     node_inputs_map = values.get("node_inputs", {})
     node_outputs_map = values.get("node_outputs", {})
 
     current_node_id = values.get("current_node_id")
+    # Nodes waiting for human approval (or that were rejected). Used to show PAUSED vs ERROR.
     awaiting_approval_nodes: set[str] = set()
-    if is_paused and current_node_id and not has_error:
+    if (status == WorkflowStatus.PAUSED or override_status == WorkflowStatus.ERROR) and current_node_id and not has_error:
         current_node = next((n for n in workflow.nodes if n.id == current_node_id), None)
         if current_node and getattr(current_node, "require_approval", False):
             awaiting_approval_nodes.add(current_node_id)
@@ -69,6 +72,7 @@ async def format_run_response(
     node_runs = {}
     for node in workflow.nodes:
         if has_error and node.id == current_node_id:
+            # Execution error (LLM/skill failure)
             node_runs[node.id] = {
                 "node_id": node.id,
                 "status": NodeStatus.ERROR,
@@ -77,6 +81,7 @@ async def format_run_response(
                 "error": values.get("error")
             }
         elif override_status == WorkflowStatus.ERROR and node.id in awaiting_approval_nodes:
+            # User rejected the approval; mark the rejected node as ERROR
             node_runs[node.id] = {
                 "node_id": node.id,
                 "status": NodeStatus.ERROR,
@@ -84,6 +89,7 @@ async def format_run_response(
                 "outputs": node_outputs_map.get(node.id),
             }
         elif node.id in awaiting_approval_nodes:
+            # Paused at human approval node, waiting for user
             node_runs[node.id] = {
                 "node_id": node.id,
                 "status": NodeStatus.PAUSED,

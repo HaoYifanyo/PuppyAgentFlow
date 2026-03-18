@@ -20,6 +20,7 @@ export const useWorkflowRun = (
   const pollingRef = useRef<number | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+  const isResumingRef = useRef(false);
 
   const [runConfigOpen, setRunConfigOpen] = useState(false);
   const [rootNodeData, setRootNodeData] = useState<{
@@ -137,9 +138,11 @@ export const useWorkflowRun = (
   const handleResume = useCallback(
     async (nodeId: string, action: string, modifiedOutputs?: any) => {
       if (!runId) return;
+      isResumingRef.current = true;
       try {
         // Optimistic UI update
         setRunStatus("running");
+        setIsPolling(false); // pause polling while resuming
         setNodes((nds) =>
           nds.map((n) => {
             if (n.id === nodeId) {
@@ -178,6 +181,8 @@ export const useWorkflowRun = (
             data: { ...n.data, globalRunStatus: "error" },
           }))
         );
+      } finally {
+        isResumingRef.current = false;
       }
     },
     [runId, workflowId, setNodes, updateNodeStates]
@@ -188,6 +193,8 @@ export const useWorkflowRun = (
     if (!runId || !workflowId) return;
     try {
       const res = await axios.get(`/api/runs/${runId}?workflow_id=${workflowId}`);
+      if (isResumingRef.current) return; // Prevent overwriting optimistic state during resume
+
       const currentRun = res.data;
       setRunStatus(currentRun.status);
       updateNodeStates(currentRun);
