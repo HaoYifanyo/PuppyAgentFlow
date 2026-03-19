@@ -45,7 +45,12 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
         return response_data
 
     if request.modified_outputs:
-        await graph.aupdate_state(config, {"context": request.modified_outputs})
+        state_snapshot = await graph.aget_state(config)
+        current_node_id = (state_snapshot.values or {}).get("current_node_id")
+        update: dict = {"context": request.modified_outputs}
+        if current_node_id:
+            update["node_outputs"] = {current_node_id: request.modified_outputs}
+        await graph.aupdate_state(config, update)
 
     try:
         await graph.ainvoke(None, config=config)
