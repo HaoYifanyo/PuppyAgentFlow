@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Save, Loader2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
+import { Modal } from "./ui/Modal";
+import { Button } from "./ui/Button";
+import { Input, Label, Textarea } from "./ui/Input";
 
 interface Skill {
   _id?: string;
@@ -84,37 +87,29 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-[520px] overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
-          <h3 className="font-bold text-gray-800 text-sm">Edit Skill</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+    <Modal isOpen={!!skill} onClose={onClose}>
+      <Modal.Container width="w-[520px]">
+        <Modal.Header title="Edit Skill" onClose={onClose} />
 
-        {/* Body */}
-        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+        <Modal.Body className="max-h-[70vh] overflow-y-auto">
           {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600 block">Name</label>
-            <input
+            <Label>Name</Label>
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
               disabled={loading}
             />
           </div>
 
           {/* Type */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600 block">Type</label>
+            <Label>Type</Label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
+              className="w-full px-3 py-2 border border-rose-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-stone-50 hover:bg-white transition-colors cursor-pointer"
               disabled={loading}
             >
               <option value="llm">LLM</option>
@@ -124,56 +119,51 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
 
           {/* Description */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600 block">Description</label>
-            <textarea
+            <Label>Description</Label>
+            <Textarea
               data-testid="edit-skill-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+              className="resize-none"
               disabled={loading}
             />
           </div>
 
           {/* Implementation */}
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600 block">
+            <Label>
               {type === "llm" ? "Prompt Template" : "Implementation (JSON)"}
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               value={implText}
               onChange={(e) => setImplText(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-y"
+              className="font-mono resize-y"
               placeholder={type === "llm" ? "Enter prompt template..." : '{ "key": "value" }'}
               disabled={loading}
             />
           </div>
 
           {error && (
-            <div className="text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">{error}</div>
+            <div className="text-xs text-red-500 bg-red-50 p-2 rounded-xl border border-red-100">{error}</div>
           )}
-        </div>
+        </Modal.Body>
 
-        {/* Footer */}
-        <div className="p-4 border-t flex justify-end gap-2 bg-gray-50">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors disabled:opacity-50"
-          >
+        <Modal.Footer className="justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={handleSave}
             disabled={loading}
-            className="flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            icon={loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Save Changes
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </Modal.Footer>
+      </Modal.Container>
+    </Modal>
   );
 };

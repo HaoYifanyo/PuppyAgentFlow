@@ -1,6 +1,6 @@
-import React, { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type { InputHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react';
 
-export const Label = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+export const Label = ({ children, className = '' }: { children: ReactNode; className?: string }) => (
   <label className={`text-sm font-semibold text-stone-700 block ${className}`}>
     {children}
   </label>

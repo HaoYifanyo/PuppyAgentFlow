@@ -1,9 +1,9 @@
-import React, { ButtonHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
-  icon?: React.ReactNode;
+  icon?: ReactNode;
 }
 
 export const Button = ({ 
@@ -14,7 +14,7 @@ export const Button = ({
   className = '',
   ...props 
 }: ButtonProps) => {
-  const baseStyle = "flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 outline-none";
+  const baseStyle = "flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 outline-none cursor-pointer";
   
   const variants = {
     primary: "bg-rose-400 hover:bg-rose-500 text-white shadow-sm shadow-rose-200",

@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -29,7 +29,7 @@ Modal.Header = ({ title, icon, onClose }: { title: ReactNode; icon?: ReactNode; 
       {title}
     </h3>
     {onClose && (
-      <button onClick={onClose} className="text-stone-400 hover:text-rose-600 transition-colors p-1 rounded-full hover:bg-rose-100">
+      <button onClick={onClose} className="text-stone-400 hover:text-rose-600 transition-colors p-1 rounded-full hover:bg-rose-100 cursor-pointer">
         <X className="w-5 h-5" />
       </button>
     )}
