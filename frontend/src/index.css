@@ -1,1 +1,13 @@
 @import "tailwindcss";
+
+@layer components {
+  .modal-overlay {
+    @apply fixed inset-0 bg-stone-900/40 backdrop-blur-sm flex items-center justify-center z-50;
+  }
+  .modal-container {
+    @apply bg-white rounded-2xl shadow-xl shadow-rose-900/5 overflow-hidden border border-rose-100;
+  }
+  .input-base {
+    @apply w-full px-3 py-2 border border-rose-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-stone-50/50 hover:bg-stone-50 transition-colors;
+  }
+}
