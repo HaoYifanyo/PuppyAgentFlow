@@ -4,11 +4,12 @@ No imports from langgraph_engine or workflow helpers.
 """
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from beanie import PydanticObjectId
 from pydantic import BaseModel
 
 from app.models.team import Team, TeamRun, TeamMessage, TeamMember, TeamEdge
+from app.services.team_orchestrator import run_team
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -93,7 +94,7 @@ async def delete_team(id: PydanticObjectId):
 
 
 @router.post("/{id}/run")
-async def start_team_run(id: PydanticObjectId, data: TeamRunStart):
+async def start_team_run(id: PydanticObjectId, data: TeamRunStart, background_tasks: BackgroundTasks):
     team = await Team.get(id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
@@ -104,13 +105,14 @@ async def start_team_run(id: PydanticObjectId, data: TeamRunStart):
         status="pending",
     )
     await run.insert()
+    background_tasks.add_task(run_team, str(team.id), str(run.id))
     return {
         "run_id": str(run.id),
         "team_id": run.team_id,
         "user_input": run.user_input,
         "max_rounds": run.max_rounds,
-        "status": run.status,
-        "message": "Team run created. Full orchestration not yet implemented.",
+        "status": "running",
+        "message": "Team run started.",
     }
 
 

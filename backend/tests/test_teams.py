@@ -1,6 +1,7 @@
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from unittest.mock import patch, AsyncMock
 from app.main import app
 from app.models.team import Team, TeamRun, TeamMessage
 from app.database import init_db
@@ -89,7 +90,6 @@ async def test_update_team():
         resp = await ac.put(f"/teams/{team_id}", json={"name": "Updated Team"})
         assert resp.status_code == 200
         assert resp.json()["name"] == "Updated Team"
-        # members and edges should remain unchanged
         assert len(resp.json()["members"]) == 3
 
 
@@ -115,67 +115,70 @@ async def test_delete_team():
         resp = await ac.delete(f"/teams/{team_id}")
         assert resp.status_code == 200
         assert resp.json()["message"] == "Team deleted"
-        # verify deleted
         resp = await ac.get(f"/teams/{team_id}")
         assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_start_team_run():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        resp = await ac.post(f"/teams/{team_id}/run", json={
-            "user_input": "Write an article about AI",
-            "max_rounds": 3,
-        })
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["user_input"] == "Write an article about AI"
-        assert data["max_rounds"] == 3
-        assert data["status"] == "pending"
-        assert "run_id" in data
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            resp = await ac.post(f"/teams/{team_id}/run", json={
+                "user_input": "Write an article about AI",
+                "max_rounds": 3,
+            })
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["user_input"] == "Write an article about AI"
+            assert data["max_rounds"] == 3
+            assert data["status"] == "running"
+            assert "run_id" in data
 
 
 @pytest.mark.asyncio
 async def test_start_team_run_default_max_rounds():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        resp = await ac.post(f"/teams/{team_id}/run", json={
-            "user_input": "Do something",
-        })
-        assert resp.status_code == 200
-        assert resp.json()["max_rounds"] == 1
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            resp = await ac.post(f"/teams/{team_id}/run", json={
+                "user_input": "Do something",
+            })
+            assert resp.status_code == 200
+            assert resp.json()["max_rounds"] == 1
 
 
 @pytest.mark.asyncio
 async def test_list_team_runs():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task 1"})
-        await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task 2"})
-        resp = await ac.get(f"/teams/{team_id}/runs")
-        assert resp.status_code == 200
-        runs = resp.json()
-        assert len(runs) == 2
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task 1"})
+            await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task 2"})
+            resp = await ac.get(f"/teams/{team_id}/runs")
+            assert resp.status_code == 200
+            runs = resp.json()
+            assert len(runs) == 2
 
 
 @pytest.mark.asyncio
 async def test_stop_team_run():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        resp = await ac.post(f"/teams/{team_id}/runs/{run_id}/stop")
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "error"
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            resp = await ac.post(f"/teams/{team_id}/runs/{run_id}/stop")
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "error"
 
 
 @pytest.mark.asyncio
@@ -190,110 +193,112 @@ async def test_stop_team_run_not_found():
 
 @pytest.mark.asyncio
 async def test_stop_team_run_wrong_team():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        team_a = await ac.post("/teams", json=_make_team_payload("Team A"))
-        team_b = await ac.post("/teams", json=_make_team_payload("Team B"))
-        team_a_id = team_a.json()["_id"]
-        team_b_id = team_b.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_a_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        # try to stop with wrong team id
-        resp = await ac.post(f"/teams/{team_b_id}/runs/{run_id}/stop")
-        assert resp.status_code == 404
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            team_a = await ac.post("/teams", json=_make_team_payload("Team A"))
+            team_b = await ac.post("/teams", json=_make_team_payload("Team B"))
+            team_a_id = team_a.json()["_id"]
+            team_b_id = team_b.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_a_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            resp = await ac.post(f"/teams/{team_b_id}/runs/{run_id}/stop")
+            assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_stop_completed_run_fails():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        # manually set to completed
-        run = await TeamRun.get(run_id)
-        run.status = "completed"
-        await run.save()
-        resp = await ac.post(f"/teams/{team_id}/runs/{run_id}/stop")
-        assert resp.status_code == 400
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            run = await TeamRun.get(run_id)
+            run.status = "completed"
+            await run.save()
+            resp = await ac.post(f"/teams/{team_id}/runs/{run_id}/stop")
+            assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_list_run_messages_empty():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        resp = await ac.get(f"/teams/{team_id}/runs/{run_id}/messages")
-        assert resp.status_code == 200
-        assert resp.json() == []
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            resp = await ac.get(f"/teams/{team_id}/runs/{run_id}/messages")
+            assert resp.status_code == 200
+            assert resp.json() == []
 
 
 @pytest.mark.asyncio
 async def test_list_run_messages_with_data():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        # insert messages directly
-        await TeamMessage(
-            team_run_id=run_id, round=1, sender="user",
-            message_type="user_input", content="Write an article"
-        ).insert()
-        await TeamMessage(
-            team_run_id=run_id, round=1, sender="lead",
-            message_type="task_assignment", content="Write it", target="writer"
-        ).insert()
-        await TeamMessage(
-            team_run_id=run_id, round=1, sender="writer",
-            message_type="work_result", content="Here is the article"
-        ).insert()
-        resp = await ac.get(f"/teams/{team_id}/runs/{run_id}/messages")
-        assert resp.status_code == 200
-        messages = resp.json()
-        assert len(messages) == 3
-        assert messages[0]["message_type"] == "user_input"
-        assert messages[1]["message_type"] == "task_assignment"
-        assert messages[1]["target"] == "writer"
-        assert messages[2]["message_type"] == "work_result"
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            await TeamMessage(
+                team_run_id=run_id, round=1, sender="user",
+                message_type="user_input", content="Write an article"
+            ).insert()
+            await TeamMessage(
+                team_run_id=run_id, round=1, sender="lead",
+                message_type="task_assignment", content="Write it", target="writer"
+            ).insert()
+            await TeamMessage(
+                team_run_id=run_id, round=1, sender="writer",
+                message_type="work_result", content="Here is the article"
+            ).insert()
+            resp = await ac.get(f"/teams/{team_id}/runs/{run_id}/messages")
+            assert resp.status_code == 200
+            messages = resp.json()
+            assert len(messages) == 3
+            assert messages[0]["message_type"] == "user_input"
+            assert messages[1]["message_type"] == "task_assignment"
+            assert messages[1]["target"] == "writer"
+            assert messages[2]["message_type"] == "work_result"
 
 
 @pytest.mark.asyncio
 async def test_list_run_messages_wrong_team():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        team_a = await ac.post("/teams", json=_make_team_payload("Team A"))
-        team_b = await ac.post("/teams", json=_make_team_payload("Team B"))
-        team_a_id = team_a.json()["_id"]
-        team_b_id = team_b.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_a_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
-        resp = await ac.get(f"/teams/{team_b_id}/runs/{run_id}/messages")
-        assert resp.status_code == 404
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            team_a = await ac.post("/teams", json=_make_team_payload("Team A"))
+            team_b = await ac.post("/teams", json=_make_team_payload("Team B"))
+            team_a_id = team_a.json()["_id"]
+            team_b_id = team_b.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_a_id}/run", json={"user_input": "Task"})
+            run_id = run_resp.json()["run_id"]
+            resp = await ac.get(f"/teams/{team_b_id}/runs/{run_id}/messages")
+            assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_team_run_has_user_input():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        create_resp = await ac.post("/teams", json=_make_team_payload())
-        team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={
-            "user_input": "Summarize this document",
-            "max_rounds": 5,
-        })
-        run_id = run_resp.json()["run_id"]
-        # verify in DB
-        run = await TeamRun.get(run_id)
-        assert run.user_input == "Summarize this document"
-        assert run.max_rounds == 5
-        assert run.current_round == 0
-        assert run.team_id == team_id
+async def test_team_run_fields():
+    with patch("app.api.teams.run_team", new_callable=AsyncMock):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            create_resp = await ac.post("/teams", json=_make_team_payload())
+            team_id = create_resp.json()["_id"]
+            run_resp = await ac.post(f"/teams/{team_id}/run", json={
+                "user_input": "Summarize this document",
+                "max_rounds": 5,
+            })
+            run_id = run_resp.json()["run_id"]
+            run = await TeamRun.get(run_id)
+            assert run.user_input == "Summarize this document"
+            assert run.max_rounds == 5
+            assert run.current_round == 0
+            assert run.team_id == team_id
 
 
 @pytest.mark.asyncio
@@ -302,8 +307,9 @@ async def test_team_message_has_round():
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         create_resp = await ac.post("/teams", json=_make_team_payload())
         team_id = create_resp.json()["_id"]
-        run_resp = await ac.post(f"/teams/{team_id}/run", json={"user_input": "Task"})
-        run_id = run_resp.json()["run_id"]
+        run = TeamRun(team_id=team_id, user_input="Task", max_rounds=3)
+        await run.insert()
+        run_id = str(run.id)
         msg = await TeamMessage(
             team_run_id=run_id, round=2, sender="lead",
             message_type="coordination", content="Round 2 start"
