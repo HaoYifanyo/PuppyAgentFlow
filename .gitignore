@@ -42,5 +42,4 @@ pnpm-debug.log*
 docs/local_docs/
 docs/daily_dev_log/
 docs/plans
-backend/skills/
 CLAUDE.md
