@@ -25,7 +25,8 @@ function App() {
   const [runHistoryOpen, setRunHistoryOpen] = useState(false);
   const [agentLibraryOpen, setAgentLibraryOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string }[]>([]);
+  const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string; name: string; description: string; implementation: Record<string, any> }[]>([]);
+  const [skillsLoading, setSkillsLoading] = useState(true);
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -37,11 +38,14 @@ function App() {
   }, []);
 
   const fetchSkills = useCallback(async () => {
+    setSkillsLoading(true);
     try {
       const res = await axios.get('/api/skills');
       setSkills(res.data);
     } catch {
       // non-critical
+    } finally {
+      setSkillsLoading(false);
     }
   }, []);
 
@@ -142,7 +146,7 @@ function App() {
       />
 
       <div className="flex-1 flex overflow-hidden relative">
-        <Sidebar />
+        <Sidebar skills={skills} loading={skillsLoading} fetchSkills={fetchSkills} />
 
         <div className="flex-1 w-full h-full relative" ref={reactFlowWrapper}>
           <ReactFlow

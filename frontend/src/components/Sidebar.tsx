@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { Loader2, Sparkles, PlayCircle, Pencil, Trash2 } from 'lucide-react';
 import { CreateSkillModal } from './CreateSkillModal';
@@ -14,40 +14,27 @@ interface Skill {
   implementation: Record<string, any>;
 }
 
-export const Sidebar = () => {
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [loading, setLoading] = useState(true);
+interface SidebarProps {
+  skills: Skill[];
+  loading: boolean;
+  fetchSkills: () => Promise<void>;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ skills, loading, fetchSkills }) => {
   const [error, setError] = useState<string | null>(null);
   const [createSkillOpen, setCreateSkillOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const fetchSkills = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await axios.get('/api/skills');
-      setSkills(res.data);
-    } catch (err: any) {
-      console.error('Failed to fetch skills', err);
-      setError('Failed to load skills');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const handleDelete = async (id: string) => {
     try {
       await axios.delete(`/api/skills/${id}`);
       setConfirmDeleteId(null);
-      fetchSkills();
+      await fetchSkills();
     } catch (err) {
       console.error('Failed to delete skill', err);
     }
   };
-
-  useEffect(() => {
-    fetchSkills();
-  }, [fetchSkills]);
 
   const onDragStart = (event: React.DragEvent, skill: Skill) => {
     const skillData = JSON.stringify(skill);
