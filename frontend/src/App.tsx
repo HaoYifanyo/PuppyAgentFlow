@@ -17,6 +17,7 @@ import StartNode from './components/nodes/StartNode';
 import { useWorkflowState } from './hooks/useWorkflowState';
 import { useWorkflowRun } from './hooks/useWorkflowRun';
 import { useWorkflowDragDrop } from './hooks/useWorkflowDragDrop';
+import { extractId } from './utils/id';
 
 const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode };
 
@@ -191,7 +192,7 @@ function App() {
         onDelete={handleDeleteNode}
         node={editingNode}
         agents={agents}
-        skillType={editingNode ? (skills.find(s => (s._id || s.id) === editingNode.skill_id)?.type) : undefined}
+        skillType={editingNode ? (skills.find(s => extractId(s._id || s.id) === editingNode.skill_id)?.type) : undefined}
       />
 
       <AgentLibraryModal

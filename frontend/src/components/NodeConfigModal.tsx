@@ -4,6 +4,7 @@ import type { Agent } from '../types/workflow';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Input, Label, Textarea } from './ui/Input';
+import { extractId } from '../utils/id';
 
 interface WorkflowNode {
   id: string;
@@ -104,7 +105,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
     }
   };
 
-  const selectedAgent = agents.find(a => (a._id || a.id) === agentId);
+  const selectedAgent = agents.find(a => extractId(a._id || a.id) === agentId);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -159,7 +160,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
               >
                 <option value="">None (use global default)</option>
                 {agents.map(agent => {
-                  const id = agent._id || agent.id || '';
+                  const id = extractId(agent._id || agent.id);
                   return (
                     <option key={id} value={id}>
                       {agent.name} — {agent.provider} / {agent.model_id}

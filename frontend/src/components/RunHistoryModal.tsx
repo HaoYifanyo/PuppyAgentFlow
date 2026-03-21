@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Check, AlertCircle, Loader2, Clock } from "lucide-react";
 import axios from "axios";
 import { Modal } from "./ui/Modal";
+import { extractId } from "../utils/id";
 
 interface RunItem {
   _id: string;
@@ -104,11 +105,12 @@ export const RunHistoryModal = ({ isOpen, onClose, workflowId }: RunHistoryModal
             ) : (
               runs.map(run => {
                 const sc = statusConfig[run.status] ?? statusConfig.pending;
-                const isSelected = run._id === selectedRunId;
+                const runId = extractId(run._id);
+                const isSelected = runId === selectedRunId;
                 return (
                   <button
-                    key={run._id}
-                    onClick={() => selectRun(run._id)}
+                    key={runId}
+                    onClick={() => selectRun(runId)}
                     className={`w-full text-left px-4 py-3 border-b border-rose-50 hover:bg-white transition-colors cursor-pointer ${isSelected ? "bg-white border-l-4 border-l-rose-400" : ""}`}
                   >
                     <div className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${sc.color} mb-1`}>

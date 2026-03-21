@@ -4,6 +4,7 @@ import { Save, Loader2 } from "lucide-react";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input, Label, Textarea } from "./ui/Input";
+import { extractId } from "../utils/id";
 
 interface Skill {
   _id?: string;
@@ -50,7 +51,7 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
 
   if (!skill) return null;
 
-  const skillId = skill._id || skill.id;
+  const skillId = extractId(skill._id || skill.id);
 
   const buildImplementation = (): Record<string, any> | null => {
     if (type === "llm") {

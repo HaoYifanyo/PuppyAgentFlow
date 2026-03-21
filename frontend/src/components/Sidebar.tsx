@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Loader2, Sparkles, PlayCircle, Pencil, Trash2 } from 'lucide-react';
 import { CreateSkillModal } from './CreateSkillModal';
 import { EditSkillModal } from './EditSkillModal';
+import { extractId } from '../utils/id';
 
 interface Skill {
   _id?: string;
@@ -121,7 +122,7 @@ export const Sidebar = () => {
         )}
 
         {skills.map((skill) => {
-          const id = skill._id || skill.id || '';
+          const id = extractId(skill._id || skill.id);
           const isConfirming = confirmDeleteId === id;
           return (
             <div

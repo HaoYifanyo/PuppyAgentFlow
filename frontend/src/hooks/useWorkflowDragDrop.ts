@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { MarkerType } from "@xyflow/react";
 import type { Node, Edge } from "@xyflow/react";
+import { extractId } from "../utils/id";
 
 export const useWorkflowDragDrop = (
   nodes: Node[],
@@ -68,7 +69,7 @@ export const useWorkflowDragDrop = (
               node: {
                 id: newNodeId,
                 name: skillData.name,
-                skill_id: skillData._id || skillData.id,
+                skill_id: extractId(skillData._id || skillData.id),
                 require_approval: true, // Default require approval for manual nodes
                 input_schema: skillData.input_schema,
                 output_schema: skillData.output_schema,

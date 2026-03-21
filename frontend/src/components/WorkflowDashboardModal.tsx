@@ -3,6 +3,7 @@ import axios from 'axios';
 import { FolderOpen, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
+import { extractId } from '../utils/id';
 
 interface Workflow {
   _id: string;
@@ -89,7 +90,7 @@ export const WorkflowDashboardModal: React.FC<WorkflowDashboardModalProps> = ({
 
           {!loading && workflows.map((wf) => (
             <div
-              key={wf._id}
+              key={extractId(wf._id)}
               className="p-4 border border-rose-100 bg-stone-50/50 rounded-2xl hover:border-rose-300 hover:bg-white transition-all duration-200 flex justify-between items-center group cursor-default shadow-sm shadow-rose-900/5"
             >
               <div className="flex-1">
@@ -113,7 +114,7 @@ export const WorkflowDashboardModal: React.FC<WorkflowDashboardModalProps> = ({
                   Load
                 </Button>
                 <button
-                  onClick={(e) => handleDelete(wf._id, e)}
+                  onClick={(e) => handleDelete(extractId(wf._id), e)}
                   className="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                   title="Delete Workflow"
                 >

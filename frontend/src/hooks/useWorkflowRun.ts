@@ -3,6 +3,7 @@ import axios from "axios";
 import type { Node, Edge } from "@xyflow/react";
 import type { WorkflowRunData } from "../types/workflow";
 import { saveWorkflowApi } from "../utils/workflowActions";
+import { extractId } from "../utils/id";
 
 export const useWorkflowRun = (
   workflowId: string | null,
@@ -39,7 +40,7 @@ export const useWorkflowRun = (
         showAlert
       );
       if (res && !workflowId) {
-        setWorkflowId(res._id || res.id);
+        setWorkflowId(extractId(res._id || res.id));
         setWorkflowName(res.name);
       }
       return res;
@@ -94,7 +95,7 @@ export const useWorkflowRun = (
         if (!currentWfId) {
           const savedWf = await saveWorkflow(false);
           if (!savedWf) return;
-          currentWfId = savedWf._id || savedWf.id;
+          currentWfId = extractId(savedWf._id || savedWf.id);
         } else {
           await saveWorkflow(false); // Auto-save existing
         }
@@ -114,7 +115,7 @@ export const useWorkflowRun = (
         );
 
         const run = res.data;
-        const rid = run._id || run.id;
+        const rid = extractId(run._id || run.id);
         setRunId(rid);
         setRunStatus(run.status);
         updateNodeStates(run);

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { useNodesState, useEdgesState, MarkerType } from "@xyflow/react";
 import type { Edge } from "@xyflow/react";
 import type { WorkflowNode } from "../types/workflow";
+import { extractId } from "../utils/id";
 
 export const useWorkflowState = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
@@ -62,7 +63,7 @@ export const useWorkflowState = () => {
   // Handle Load
   const handleLoadWorkflow = useCallback(
     (wf: any, handleResume: any) => {
-      setWorkflowId(wf._id || wf.id);
+      setWorkflowId(extractId(wf._id || wf.id));
       setWorkflowName(wf.name);
 
       const loadedNodes = wf.nodes.map((n: any, idx: number) => ({

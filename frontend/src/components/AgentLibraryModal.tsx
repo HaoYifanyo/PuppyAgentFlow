@@ -5,6 +5,7 @@ import type { Agent, AgentProvider } from '../types/workflow';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Input, Label, Textarea } from './ui/Input';
+import { extractId } from '../utils/id';
 
 interface AgentLibraryModalProps {
   isOpen: boolean;
@@ -64,7 +65,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
   }, [isOpen]);
 
   const handleSelect = (agent: Agent) => {
-    const id = agent._id || agent.id || '';
+    const id = extractId(agent._id || agent.id);
     setSelectedId(id);
     setIsNew(false);
     setShowApiKey(false);
@@ -193,7 +194,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                 </p>
               )}
               {agents.map((agent) => {
-                const id = agent._id || agent.id || '';
+                const id = extractId(agent._id || agent.id);
                 const providerLabel = PROVIDER_OPTIONS.find(p => p.value === agent.provider)?.label ?? agent.provider;
                 const isSelected = selectedId === id;
                 return (
