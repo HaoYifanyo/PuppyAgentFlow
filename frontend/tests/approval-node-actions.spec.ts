@@ -63,12 +63,15 @@ test('approval node: approve, reject, edit - verify status', async ({ page, requ
   // 3. Add Skill Node (require_approval defaults to true on add)
   const skillCard = page.locator('div[draggable]').filter({ hasText: SKILL_NAME }).first();
   await skillCard.waitFor({ state: 'visible' });
+  await skillCard.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(300);
   const skillCardBox = await skillCard.boundingBox();
   if (!skillCardBox || !canvasBox) throw new Error('Could not get skill card box');
   await page.mouse.move(skillCardBox.x + skillCardBox.width / 2, skillCardBox.y + skillCardBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(canvasBox.x + 450, canvasBox.y + 150, { steps: 10 });
   await page.mouse.up();
+  await page.waitForTimeout(500);
   await expect(page.locator('.react-flow__node').filter({ hasText: SKILL_NAME })).toBeVisible({ timeout: 5000 });
 
   // 4. Connect Start -> Skill

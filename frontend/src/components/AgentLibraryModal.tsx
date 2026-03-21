@@ -170,6 +170,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
           title="Puppy Agents"
           icon={<Dog className="w-4 h-4 text-rose-500" />}
           onClose={onClose}
+          closeTestId="agent-modal-close"
         />
 
         <div className="flex h-[600px] overflow-hidden rounded-b-2xl">
