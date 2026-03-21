@@ -110,8 +110,6 @@ async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = No
 
 async def generate_skill_with_llm(instruction: str) -> Dict[str, Any]:
     """Uses the first available Puppy Agent to generate a skill definition.
-
-    Preference order: gemini > openai > anthropic > custom.
     """
 
 

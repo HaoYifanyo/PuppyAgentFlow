@@ -23,6 +23,7 @@ export const saveWorkflowApi = async (
         agent_id: n.data?.node?.agent_id,
         require_approval: n.data?.node?.require_approval ?? false,
         is_start_node: n.data?.node?.is_start_node ?? false,
+        batch_mode: n.data?.node?.batch_mode ?? false,
         position: n.position,
         config: n.data?.node?.config || {},
         input_schema: n.data?.node?.input_schema,

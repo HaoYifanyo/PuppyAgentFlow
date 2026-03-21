@@ -20,6 +20,7 @@ export interface WorkflowNode {
   agent_id?: string;
   require_approval: boolean;
   is_start_node?: boolean;
+  batch_mode?: boolean;
   position?: { x: number; y: number };
   input_schema?: Record<string, any>;
   output_schema?: Record<string, any>;

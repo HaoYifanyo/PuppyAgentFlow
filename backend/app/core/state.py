@@ -23,3 +23,5 @@ class WorkflowState(TypedDict):
     current_node_id: str
     # Optional error message tracking
     error: str
+    # Batch execution: collector for parallel worker results (reducer appends)
+    batch_collector: Annotated[list[dict[str, Any]], operator.add]

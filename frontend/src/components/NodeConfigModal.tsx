@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Save, Dog } from 'lucide-react';
+import { Trash2, Save, Dog, Layers } from 'lucide-react';
 import type { Agent } from '../types/workflow';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
@@ -12,6 +12,7 @@ interface WorkflowNode {
   agent_id?: string;
   require_approval: boolean;
   is_start_node?: boolean;
+  batch_mode?: boolean;
   config?: Record<string, any>;
 }
 
@@ -36,6 +37,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [requireApproval, setRequireApproval] = useState(false);
+  const [batchMode, setBatchMode] = useState(false);
   const [configStr, setConfigStr] = useState('');
   const [agentId, setAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
     if (isOpen && node) {
       setName(node.name || '');
       setRequireApproval(node.require_approval || false);
+      setBatchMode(node.batch_mode || false);
       setAgentId(node.agent_id || '');
 
       if (node.is_start_node) {
@@ -83,6 +86,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
     const updatedData: Partial<WorkflowNode> = {
       name,
       require_approval: requireApproval,
+      batch_mode: batchMode,
       config: parsedConfig,
       agent_id: agentId || undefined,
     };
@@ -189,6 +193,28 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
                   className="sr-only peer"
                   checked={requireApproval}
                   onChange={(e) => setRequireApproval(e.target.checked)}
+                />
+                <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-400"></div>
+              </label>
+            </div>
+          )}
+
+          {/* Batch Mode Switch */}
+          {!node.is_start_node && (
+            <div className="flex items-center justify-between p-3 bg-white border border-rose-100 rounded-xl shadow-sm shadow-rose-900/5">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-rose-400" />
+                <div>
+                  <div className="text-sm font-semibold text-stone-800">Batch Mode</div>
+                  <div className="text-[10px] text-stone-500 mt-0.5">Process list inputs in parallel. Each item is handled by a separate worker.</div>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={batchMode}
+                  onChange={(e) => setBatchMode(e.target.checked)}
                 />
                 <div className="w-9 h-5 bg-stone-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-400"></div>
               </label>

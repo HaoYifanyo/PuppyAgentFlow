@@ -68,7 +68,7 @@ async def start_run(id: PydanticObjectId, inputs: Dict[str, Any] = None):
     if inputs:
         initial_context.update(inputs)
 
-    initial_state = {"context": initial_context, "executed_nodes": []}
+    initial_state = {"context": initial_context, "executed_nodes": [], "batch_collector": []}
 
     try:
         await graph.ainvoke(initial_state, config=config)

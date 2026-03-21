@@ -71,6 +71,7 @@ class Node(BaseModel):
     agent_id: Optional[str] = None
     require_approval: bool = False
     is_start_node: bool = False
+    batch_mode: bool = False
     position: Optional[Dict[str, float]] = None
     config: Dict[str, Any] = {} # For prompt instructions and schema definitions
 

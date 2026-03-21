@@ -9,6 +9,7 @@ import {
   X,
   Edit3,
   Settings,
+  Layers,
 } from "lucide-react";
 import type { WorkflowNode, NodeRunData } from "../../types/workflow";
 
@@ -122,9 +123,13 @@ const PuppyNode = ({ data }: NodeProps) => {
     }
   };
 
+  const isBatchMode = node.batch_mode === true;
+  const borderClass = isBatchMode ? "border-rose-500" : conf.border;
+  const bgClass = isBatchMode ? "bg-rose-50/30" : "bg-white";
+
   return (
     <div
-      className={`px-4 py-3 shadow-md rounded-xl bg-white border-2 ${conf.border} min-w-[250px] transition-all`}
+      className={`px-4 py-3 shadow-md rounded-xl ${bgClass} border-2 ${borderClass} min-w-[250px] transition-all`}
     >
       <Handle
         type="target"
@@ -138,6 +143,12 @@ const PuppyNode = ({ data }: NodeProps) => {
         <div>
           <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
             🐶 {node.name}
+            {isBatchMode && (
+              <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                <Layers className="w-2.5 h-2.5" />
+                Batch
+              </span>
+            )}
           </h3>
         </div>
         <div
