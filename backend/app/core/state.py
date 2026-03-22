@@ -9,6 +9,10 @@ def merge_dicts(a: dict, b: dict) -> dict:
         b = {}
     return {**a, **b}
 
+def keep_last(a: str, b: str) -> str:
+    """Keep the last value (used for current_node_id in parallel execution)."""
+    return b if b else a
+
 class WorkflowState(TypedDict):
     # Each node's output fully replaces this field (no accumulation).
     # Downstream nodes only see the direct predecessor's output, keeping data flow clean.
@@ -19,8 +23,8 @@ class WorkflowState(TypedDict):
     node_inputs: Annotated[dict[str, Any], merge_dicts]
     # Per-node outputs snapshot: {node_id: {key: value}}
     node_outputs: Annotated[dict[str, Any], merge_dicts]
-    # The node ID that ran in the current step (non-accumulating, used for history query)
-    current_node_id: str
+    # The node ID that ran in the current step (keep last value for parallel execution)
+    current_node_id: Annotated[str, keep_last]
     # Optional error message tracking
     error: str
     # Batch execution: collector for parallel worker results (reducer appends)

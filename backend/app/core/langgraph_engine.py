@@ -36,8 +36,10 @@ def _build_node_inputs(context: dict, skill_model) -> dict:
 def _find_list_in_context(context: dict):
     """
     Find the first list value in context. Returns the list or None.
-    Also tries to parse string values as lists (split by newline or comma).
+    Also tries to parse string values as lists (JSON format, newline, or comma separated).
     """
+    import json
+    
     for key, value in context.items():
         if isinstance(value, list) and len(value) > 0:
             return value
@@ -45,6 +47,14 @@ def _find_list_in_context(context: dict):
     # If no list found, try to parse string values
     for key, value in context.items():
         if isinstance(value, str) and value.strip():
+            # Try JSON parsing first
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+            
             # Try splitting by newline first, then comma
             newline_items = [item.strip() for item in value.split('\n') if item.strip()]
             comma_items = [item.strip() for item in value.split(',') if item.strip()]
@@ -132,16 +142,25 @@ def make_batch_worker(node_model, skill_model):
         else:
             node_inputs = {"input": item}
 
+        worker_id = f"{node_model.id}__worker"
         try:
             if skill_model.type == "llm":
                 output = await execute_llm_node(node_model, node_inputs, skill_model)
             else:
                 output = await execute_tool_node(node_model, node_inputs, skill_model)
         except Exception as e:
-            return {"batch_collector": [{"index": index, "item": item, "error": str(e)}]}
+            return {
+                "executed_nodes": [worker_id],
+                "current_node_id": worker_id,
+                "batch_collector": [{"index": index, "item": item, "error": str(e)}],
+            }
 
         result = output if isinstance(output, dict) else {"result": output}
-        return {"batch_collector": [{"index": index, "item": item, "output": result}]}
+        return {
+            "executed_nodes": [worker_id],
+            "current_node_id": worker_id,
+            "batch_collector": [{"index": index, "item": item, "output": result}],
+        }
     
     return worker
 
@@ -157,10 +176,14 @@ def make_batch_aggregator(node_model):
         
         logger.info(f"Batch aggregator '{node_model.name}': collected {len(sorted_results)} results")
 
+        # Build inputs from batch items
+        batch_inputs = [r.get("item") for r in sorted_results]
+        
         return {
             "context": {"results": sorted_results},
             "executed_nodes": [node_model.id],
             "current_node_id": node_model.id,
+            "node_inputs": {node_model.id: {"items": batch_inputs}},
             "node_outputs": {node_model.id: {"results": sorted_results}},
         }
     
