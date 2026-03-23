@@ -16,7 +16,7 @@ load_dotenv()
 tool_manager = ToolExecutorManager()
 
 
-async def _get_llm_client(node: Node) -> LLMClient:
+async def _get_llm_client(node: Node, streaming: bool = False) -> LLMClient:
     """
     Build an LLMClient based on the agent referenced by node.agent_id.
     An explicit Puppy Agent with api_key is required; no environment fallback.
@@ -40,6 +40,7 @@ async def _get_llm_client(node: Node) -> LLMClient:
         model=agent.model_id,
         api_key=api_key,
         base_url=agent.base_url or None,
+        streaming=streaming,
     )
 
 
@@ -104,7 +105,7 @@ async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = No
     if not output_schema:
         output_schema = {"result": "string"}
 
-    llm_client = await _get_llm_client(node)
+    llm_client = await _get_llm_client(node, streaming=True)
     return await llm_client.generate(system_prompt, user_prompt, output_schema)
 
 

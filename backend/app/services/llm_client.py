@@ -3,7 +3,13 @@ from typing import Any, Dict, Optional
 from langchain_core.messages import SystemMessage, HumanMessage
 
 
-def _build_langchain_model(provider: str, model: str, api_key: Optional[str], base_url: Optional[str]):
+def _build_langchain_model(
+    provider: str,
+    model: str,
+    api_key: Optional[str],
+    base_url: Optional[str],
+    streaming: bool = False,
+):
     """Instantiate the appropriate LangChain chat model based on provider.
 
     All providers require an explicit api_key from Agent configuration.
@@ -15,13 +21,15 @@ def _build_langchain_model(provider: str, model: str, api_key: Optional[str], ba
         from langchain_google_genai import ChatGoogleGenerativeAI
         if not model:
             raise ValueError("model_id is required for gemini provider")
-        return ChatGoogleGenerativeAI(model=model, google_api_key=api_key)
+        return ChatGoogleGenerativeAI(
+            model=model, google_api_key=api_key, streaming=streaming
+        )
 
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
         if not model:
             raise ValueError("model_id is required for openai provider")
-        kwargs = {"model": model, "api_key": api_key}
+        kwargs = {"model": model, "api_key": api_key, "streaming": streaming}
         if base_url:
             kwargs["base_url"] = base_url
         return ChatOpenAI(**kwargs)
@@ -30,14 +38,14 @@ def _build_langchain_model(provider: str, model: str, api_key: Optional[str], ba
         from langchain_anthropic import ChatAnthropic
         if not model:
             raise ValueError("model_id is required for anthropic provider")
-        return ChatAnthropic(model=model, api_key=api_key)
+        return ChatAnthropic(model=model, api_key=api_key, streaming=streaming)
 
     elif provider == "custom":
         # OpenAI-compatible endpoint
         from langchain_openai import ChatOpenAI
         if not model:
             raise ValueError("model_id is required for custom provider")
-        kwargs = {"model": model, "api_key": api_key}
+        kwargs = {"model": model, "api_key": api_key, "streaming": streaming}
         if base_url:
             kwargs["base_url"] = base_url
         return ChatOpenAI(**kwargs)
@@ -58,8 +66,11 @@ class LLMClient:
         model: Optional[str] = None,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
+        streaming: bool = False,
     ):
-        self._chat_model = _build_langchain_model(provider, model, api_key, base_url)
+        self._chat_model = _build_langchain_model(
+            provider, model, api_key, base_url, streaming=streaming
+        )
 
     async def generate(self, system_prompt: str, user_prompt: str, response_schema: Optional[Dict] = None) -> Any:
         """

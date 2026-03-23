@@ -1,11 +1,14 @@
 from typing import Any, Optional
 
+import json
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from beanie import PydanticObjectId
 
 from app.models.workflow import Workflow, WorkflowRun, WorkflowStatus
 from app.api.helpers import build_graph_for_workflow, format_run_response
+from app.api.workflows import _handle_stream
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -29,20 +32,31 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
     graph = await build_graph_for_workflow(workflow)
     config = {"configurable": {"thread_id": run_id}}
 
+    if request.action == "reject":
+        async def reject_stream():
+            msg = json.dumps({
+                "type": "error",
+                "run_id": run_id,
+                "workflow_id": workflow_id,
+                "final_status": "error",
+                "message": "Rejected by user",
+            })
+            yield f"data: {msg}\n\n"
+
+        return StreamingResponse(
+            reject_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+
     run_record = await WorkflowRun.get(run_id)
     if run_record:
         run_record.status = WorkflowStatus.RUNNING
         await run_record.save()
-
-    if request.action == "reject":
-        response_data = await format_run_response(
-            run_id, workflow, graph, config, override_status=WorkflowStatus.ERROR
-        )
-        run_record = await WorkflowRun.get(run_id)
-        if run_record:
-            run_record.status = WorkflowStatus.ERROR
-            await run_record.save()
-        return response_data
 
     if request.modified_outputs:
         state_snapshot = await graph.aget_state(config)
@@ -52,19 +66,12 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
             update["node_outputs"] = {current_node_id: request.modified_outputs}
         await graph.aupdate_state(config, update)
 
-    try:
-        await graph.ainvoke(None, config=config)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    response_data = await format_run_response(run_id, workflow, graph, config)
-
-    run_record = await WorkflowRun.get(run_id)
-    if run_record:
-        run_record.status = WorkflowStatus(response_data["status"])
-        await run_record.save()
-
-    return response_data
+    # Resume graph execution via streaming
+    return StreamingResponse(
+        _handle_stream(graph, config, workflow, run_id, run_record),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{run_id}")

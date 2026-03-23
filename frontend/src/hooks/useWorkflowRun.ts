@@ -22,6 +22,11 @@ export const useWorkflowRun = (
 
   const [error, setError] = useState<string | null>(null);
   const isResumingRef = useRef(false);
+  
+  // Cache all node updates during streaming
+  const nodeUpdatesRef = useRef<Record<string, any>>({});
+  // Cache streaming tokens for each node
+  const streamingTokensRef = useRef<Record<string, string>>({});
 
   const [runConfigOpen, setRunConfigOpen] = useState(false);
   const [rootNodeData, setRootNodeData] = useState<{
@@ -51,6 +56,7 @@ export const useWorkflowRun = (
   // Update visual state of nodes based on Run data
   const updateNodeStates = useCallback(
     (runData: WorkflowRunData) => {
+      if (!runData?.node_runs) return;
       setNodes((nds) =>
         nds.map((n) => {
           const nr = runData.node_runs[n.id];
@@ -84,21 +90,185 @@ export const useWorkflowRun = (
     [setNodes, setEdges]
   );
 
-  // Execute Run
+  // Process a ReadableStream of SSE messages, updating node states in real-time
+  const processStream = useCallback(
+    async (body: ReadableStream<Uint8Array>) => {
+      const reader = body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === "messages") {
+                const [messageChunk, metadata] = data.data || [];
+                if (messageChunk?.content) {
+                  const nodeId = metadata?.langgraph_node;
+                  if (nodeId) {
+                    streamingTokensRef.current[nodeId] = (streamingTokensRef.current[nodeId] || "") + messageChunk.content;
+
+                    setNodes((nds) =>
+                      nds.map((n) => {
+                        if (n.id === nodeId) {
+                          return {
+                            ...n,
+                            data: {
+                              ...n.data,
+                              runData: {
+                                node_id: nodeId,
+                                status: "running",
+                                inputs: nodeUpdatesRef.current[nodeId]?.node_inputs?.[nodeId] || {},
+                                outputs: { streaming: streamingTokensRef.current[nodeId] },
+                                error_msg: null,
+                              },
+                              globalRunStatus: "running",
+                            },
+                          };
+                        }
+                        return n;
+                      })
+                    );
+                  }
+                }
+              } else if (data.type === "updates") {
+                const updates = data.data || {};
+
+                for (const [key, value] of Object.entries(updates)) {
+                  if (key.startsWith("__")) continue;
+                  if (!value || typeof value !== "object") continue;
+                  if (!("executed_nodes" in value)) continue;
+
+                  const originalNodeId = key.replace(/__(worker|aggregator)$/, "");
+                  nodeUpdatesRef.current[originalNodeId] = value;
+                }
+
+                setNodes((nds) =>
+                  nds.map((n) => {
+                    const update = nodeUpdatesRef.current[n.id];
+                    if (update) {
+                      const isAggregator = Object.keys(updates).some(k => k === `${n.id}__aggregator`);
+                      const isWorker = Object.keys(updates).some(k => k.match(new RegExp(`^${n.id}__worker$`)));
+
+                      let status: "running" | "completed" = "running";
+                      if (update.error) {
+                        status = "completed";
+                      } else if (isAggregator || (!isWorker && !update.executed_nodes?.some((id: string) => id.includes("__worker")))) {
+                        status = "completed";
+                      }
+
+                      return {
+                        ...n,
+                        data: {
+                          ...n.data,
+                          runData: {
+                            node_id: n.id,
+                            status: update.error ? "error" : status,
+                            inputs: update.node_inputs?.[n.id] || {},
+                            outputs: update.node_outputs?.[n.id] || update.context || {},
+                            error_msg: update.error || null,
+                          },
+                          globalRunStatus: "running",
+                        },
+                      };
+                    }
+                    return n;
+                  })
+                );
+
+                setEdges((eds) =>
+                  eds.map((e) => ({ ...e, animated: !!nodeUpdatesRef.current[e.target] }))
+                );
+              } else if (data.type === "done") {
+                const rid = data.run_id || "";
+                setRunId(rid);
+                setRunStatus("completed");
+                setNodes((nds) =>
+                  nds.map((n) => ({
+                    ...n,
+                    data: { ...n.data, globalRunStatus: "completed" },
+                  }))
+                );
+                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+              } else if (data.type === "paused") {
+                const rid = data.run_id || "";
+                setRunId(rid);
+                setRunStatus("paused");
+
+                // Identify which node needs approval
+                const interrupts: any[] = data.data?.interrupts || [];
+                const interruptNodeIds = interrupts
+                  .map((i: any) => i.id)
+                  .filter(Boolean);
+
+                // Fallback: find last executed node with require_approval (interrupt_after)
+                let fallbackNodeId: string | null = null;
+                if (interruptNodeIds.length === 0) {
+                  for (const [nodeId, update] of Object.entries(nodeUpdatesRef.current)) {
+                    if ((update as any)?.current_node_id === nodeId) {
+                      fallbackNodeId = nodeId;
+                    }
+                  }
+                }
+
+                setNodes((nds) =>
+                  nds.map((n) => {
+                    const isPausedNode =
+                      interruptNodeIds.includes(n.id) ||
+                      (fallbackNodeId === n.id && n.data?.node?.require_approval);
+                    return {
+                      ...n,
+                      data: {
+                        ...n.data,
+                        globalRunStatus: "paused",
+                        runData: isPausedNode
+                          ? { ...n.data.runData, status: "paused" as const }
+                          : n.data.runData,
+                      },
+                    };
+                  })
+                );
+                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+              } else if (data.type === "error") {
+                throw new Error(data.message || "Stream error");
+              }
+            } catch (e) {
+              console.error("Failed to parse SSE message:", e, line);
+            }
+          }
+        }
+      }
+    },
+    [setNodes, setEdges]
+  );
+
+  // Execute Run with streaming
   const executeRun = useCallback(
     async (initialInputs: Record<string, any>) => {
       setRunConfigOpen(false);
 
       try {
-        // 1. Ensure workflow is saved
         let currentWfId = workflowId;
         if (!currentWfId) {
           const savedWf = await saveWorkflow(false);
           if (!savedWf) return;
           currentWfId = extractId(savedWf._id || savedWf.id);
         } else {
-          await saveWorkflow(false); // Auto-save existing
+          await saveWorkflow(false);
         }
+
+        nodeUpdatesRef.current = {};
+        streamingTokensRef.current = {};
 
         setRunStatus("running");
         setNodes((nds) =>
@@ -108,21 +278,26 @@ export const useWorkflowRun = (
           }))
         );
 
-        // 2. Start the run with user provided inputs
-        const res = await axios.post(
-          `/api/workflows/${currentWfId}/run`,
-          initialInputs
+        const response = await fetch(
+          `/api/workflows/${currentWfId}/execute/stream`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(initialInputs),
+          }
         );
 
-        const run = res.data;
-        const rid = extractId(run._id || run.id);
-        setRunId(rid);
-        setRunStatus(run.status);
-        updateNodeStates(run);
-        setIsPolling(true);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        if (!response.body) {
+          throw new Error("Response body is null");
+        }
+
+        await processStream(response.body);
       } catch (err: any) {
         console.error(err);
-        setError(err.response?.data?.detail ?? "Failed to start run.");
+        setError(err.message ?? "Failed to start run.");
         setRunStatus("error");
         setNodes((nds) =>
           nds.map((n) => ({
@@ -132,7 +307,7 @@ export const useWorkflowRun = (
         );
       }
     },
-    [workflowId, saveWorkflow, updateNodeStates, setNodes]
+    [workflowId, saveWorkflow, setNodes, setEdges, processStream]
   );
 
   // Handle Human Intervention (Resume)
@@ -161,20 +336,26 @@ export const useWorkflowRun = (
           })
         );
 
-        const res = await axios.post(
+        const response = await fetch(
           `/api/runs/${runId}/resume?workflow_id=${workflowId}`,
           {
-            action,
-            modified_outputs: modifiedOutputs,
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action, modified_outputs: modifiedOutputs }),
           }
         );
-        const updatedRun = res.data;
-        setRunStatus(updatedRun.status);
-        updateNodeStates(updatedRun);
-        setIsPolling(true); // resume polling
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        if (!response.body) {
+          throw new Error("Response body is null");
+        }
+
+        await processStream(response.body);
       } catch (err: any) {
         console.error(err);
-        setError(err.response?.data?.detail ?? err.message ?? "Resume failed.");
+        setError(err.message ?? "Resume failed.");
         setRunStatus("error");
         setNodes((nds) =>
           nds.map((n) => ({
@@ -186,7 +367,7 @@ export const useWorkflowRun = (
         isResumingRef.current = false;
       }
     },
-    [runId, workflowId, setNodes, updateNodeStates]
+    [runId, workflowId, setNodes, processStream]
   );
 
   // Polling loop
