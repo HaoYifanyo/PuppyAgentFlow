@@ -22,24 +22,22 @@ async def init_db(uri: str = "mongodb://localhost:27017", db_name: str = os.gete
     db = client[db_name]
     await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun, Agent])
 
-    # Initialize default skills if none exist
-    if await Skill.find_all().count() == 0:
-        # Built-in LLM skill
-        default_skills = [
-            Skill(
-                name="LLM Node",
-                type="llm",
-                description="Generates text using an LLM based on a prompt template.",
-                input_schema={"prompt": "string"},
-                output_schema={"result": "string"},
-                implementation={"prompt_template": "You are a helpful assistant. Provide an answer based on {{prompt}}."}
-            )
-        ]
+    # Initialize default skills
+    existing_skills = {s.name async for s in Skill.find_all()}
 
-        # Load skills from disk (SKILL.md files)
-        disk_skills_data = SkillFileService.load_all_from_disk()
-        for skill_data in disk_skills_data:
-            default_skills.append(Skill(**skill_data))
+    # Built-in LLM skill
+    if "LLM Node" not in existing_skills:
+        await Skill(
+            name="LLM Node",
+            type="llm",
+            description="Generates text using an LLM based on a prompt template.",
+            input_schema={"prompt": "string"},
+            output_schema={"result": "string"},
+            implementation={"prompt_template": "You are a helpful assistant. Provide an answer based on {{prompt}}."}
+        ).insert()
 
-        for skill in default_skills:
-            await skill.insert()
+    # Load skills from disk (SKILL.md files)
+    disk_skills_data = SkillFileService.load_all_from_disk()
+    for skill_data in disk_skills_data:
+        if skill_data["name"] not in existing_skills:
+            await Skill(**skill_data).insert()
