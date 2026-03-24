@@ -1,5 +1,6 @@
 import requests
 import json
+import asyncio
 from typing import Dict, Any
 
 class ToolExecutorManager:
@@ -9,7 +10,8 @@ class ToolExecutorManager:
     def __init__(self):
         self.executors = {
             "http_request": self._execute_http_request,
-            "python_eval": self._execute_python_eval
+            "python_eval": self._execute_python_eval,
+            "browser_use": self._execute_browser_use
         }
 
     def execute(self, executor_type: str, config: Dict[str, Any], inputs: Dict[str, Any]) -> Any:
@@ -88,3 +90,72 @@ class ToolExecutorManager:
             
         except Exception as e:
             raise RuntimeError(f"Python eval execution failed: {str(e)}") from e
+
+    def _execute_browser_use(self, config: Dict[str, Any], inputs: Dict[str, Any]) -> Any:
+        """
+        Execute browser-use agent with task template interpolation.
+        """
+        # Task template interpolation
+        task_template = config.get("task_template", "")
+        task = task_template
+        for key, val in inputs.items():
+            task = task.replace(f"{{{{{key}}}}}", str(val))
+
+        # Browser configuration
+        browser_config = config.get("browser_config", {})
+        headless = browser_config.get("headless", False)
+        max_steps = config.get("max_steps", 20)
+
+        # Build LLM from Agent configuration (sync wrapper for async)
+        async def _build_and_run():
+            from browser_use import Agent
+
+            # Get Agent configuration from config (passed by execute_tool_node)
+            agent_config = config.get("agent_config", {})
+            provider = agent_config.get("provider")
+            model_id = agent_config.get("model_id")
+            api_key = agent_config.get("api_key")
+
+            if not provider or not model_id or not api_key:
+                raise ValueError("browser_use requires agent_config with provider, model_id, and api_key")
+
+            # Build LLM based on provider
+            llm = self._build_llm_for_browser_use(provider, model_id, api_key)
+
+            # Create and run agent
+            agent = Agent(
+                task=task,
+                llm=llm,
+                max_steps=max_steps,
+            )
+
+            result = await agent.run()
+            return {"result": result.final_result()}
+
+        # Run async function
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're already in an async context, we need to handle this differently
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    future = pool.submit(asyncio.run, _build_and_run())
+                    return future.result()
+            else:
+                return asyncio.run(_build_and_run())
+        except Exception as e:
+            raise RuntimeError(f"browser_use execution failed: {str(e)}") from e
+
+    def _build_llm_for_browser_use(self, provider: str, model_id: str, api_key: str):
+        """Build LLM instance for browser-use based on provider."""
+        if provider == "openai":
+            from browser_use import ChatOpenAI
+            return ChatOpenAI(model=model_id, api_key=api_key)
+        elif provider == "anthropic":
+            from browser_use import ChatAnthropic
+            return ChatAnthropic(model=model_id, api_key=api_key)
+        elif provider == "gemini":
+            from browser_use import ChatGoogle
+            return ChatGoogle(model=model_id, api_key=api_key)
+        else:
+            raise ValueError(f"Unsupported provider for browser_use: {provider}")
