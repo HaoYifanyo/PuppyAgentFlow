@@ -70,17 +70,31 @@ async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = N
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
 
     if not isinstance(implementation, dict):
-        raise ValueError(f"Tool implementation must be a dictionary with 'executor' and 'config'. Got: {implementation}")
+        raise ValueError(f"Tool implementation must be a dictionary. Got: {implementation}")
 
-    executor = implementation.get("executor")
+    # Support both 'executor' and 'executor_type' keys
+    executor = implementation.get("executor") or implementation.get("executor_type")
     config = implementation.get("config", {})
+
+    # If no separate config, use the entire implementation as config (minus executor keys)
+    if not config:
+        config = {k: v for k, v in implementation.items() if k not in ("executor", "executor_type")}
 
     node_merged_config = getattr(node, "config", {})
     if node_merged_config:
         config.update(node_merged_config)
 
     if not executor:
-        raise ValueError(f"Tool implementation missing 'executor': {implementation}")
+        raise ValueError(f"Tool implementation missing 'executor' or 'executor_type': {implementation}")
+
+    # For browser_use executor, pass Agent configuration
+    if executor == "browser_use":
+        agent = await _get_agent_for_browser_use(node)
+        config["agent_config"] = {
+            "provider": agent.provider,
+            "model_id": agent.model_id,
+            "api_key": decrypt_text(agent.api_key_encrypted)
+        }
 
     return tool_manager.execute(executor, config, inputs)
 

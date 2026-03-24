@@ -71,3 +71,45 @@ def test_execute_browser_use_task_template_interpolation():
             assert "Python" in call_kwargs["task"]
             assert "Beijing" in call_kwargs["task"]
             assert result["result"] == "Found 5 Python jobs in Beijing"
+
+
+@pytest.mark.asyncio
+async def test_execute_tool_node_supports_executor_type():
+    """Test that execute_tool_node supports executor_type in implementation."""
+    from app.services.llm_executor import execute_tool_node
+
+    mock_node = MagicMock()
+    mock_node.agent_id = "507f1f77bcf86cd799439011"
+    mock_node.config = {}
+
+    mock_skill = MagicMock()
+    mock_skill.implementation = {
+        "executor_type": "browser_use",
+        "task_template": "test task"
+    }
+
+    mock_agent = MagicMock()
+    mock_agent.provider = "openai"
+    mock_agent.model_id = "gpt-4"
+    mock_agent.api_key_encrypted = "encrypted_key"
+
+    with patch("app.services.llm_executor.Agent") as MockAgent:
+        MockAgent.get = AsyncMock(return_value=mock_agent)
+
+        with patch("app.services.llm_executor.decrypt_text") as mock_decrypt:
+            mock_decrypt.return_value = "decrypted_key"
+
+            with patch("app.services.llm_executor.tool_manager") as mock_manager:
+                mock_manager.execute = MagicMock(return_value={"result": "success"})
+
+                result = await execute_tool_node(mock_node, {}, mock_skill)
+
+                # Verify executor_type was used
+                call_args = mock_manager.execute.call_args
+                executor_arg = call_args[0][0]
+                assert executor_arg == "browser_use"
+
+                # Verify agent_config was passed
+                config_arg = call_args[0][1]
+                assert "agent_config" in config_arg
+                assert config_arg["agent_config"]["provider"] == "openai"
