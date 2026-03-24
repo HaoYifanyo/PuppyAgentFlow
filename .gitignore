@@ -26,6 +26,7 @@ frontend/dist/
 frontend/dist-ssr/
 frontend/build/
 *.local
+frontend/package-lock.json
 
 # Claude & Tools
 .claude/
