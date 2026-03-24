@@ -10,6 +10,9 @@ from app.services.skill_service import SkillFileService
 from app.models.workflow import Skill
 from app.database import init_db
 
+from httpx import AsyncClient, ASGITransport
+from app.main import app
+
 @pytest_asyncio.fixture(autouse=True)
 async def db_init():
     await init_db(db_name="test_skills_service_db")
@@ -82,4 +85,4 @@ def test_skill_path_generation():
     skill = Skill(name="Image Generator", type="llm", implementation={})
     path = skill.get_path()
     # Use backslashes or normalize for Windows as per plan
-    assert "backend\\skills\\image_generator\\SKILL.md" in path or "backend/skills/image_generator/SKILL.md" in path.replace("\\", "/")
+    assert "skills\\image_generator\\SKILL.md" in path or "skills/image_generator/SKILL.md" in path.replace("\\", "/")

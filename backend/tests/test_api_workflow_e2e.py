@@ -7,7 +7,7 @@ from httpx import AsyncClient, ASGITransport
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.main import app
-from app.models.workflow import Workflow, WorkflowRun, Skill
+from app.models.workflow import Workflow, WorkflowRun, Skill, WorkflowStatus
 from app.database import init_db
 
 @pytest_asyncio.fixture(autouse=True)
@@ -16,12 +16,10 @@ async def db_init():
     await init_db(db_name="test_api_db_smoke")
     # Clear existing data to ensure a clean state
     await Workflow.find_all().delete()
-    await WorkflowRun.find_all().delete()
     await Skill.find_all().delete()
     yield
     # Cleanup
     await Workflow.find_all().delete()
-    await WorkflowRun.find_all().delete()
     await Skill.find_all().delete()
 
 @pytest.mark.asyncio
@@ -71,25 +69,42 @@ async def test_end_to_end_workflow_execution():
         run = res.json()
         run_id = run.get("_id") or run.get("id")
 
-        # Verify it paused at the first node (node_1, because start completes immediately)
+        res = await ac.get(f"/workflows/{wf_id}/runs")
+        assert res.status_code == 200
+        runs_list = res.json()
+        assert len(runs_list) == 1
+        assert runs_list[0]["_id"] == run_id
+        assert runs_list[0]["status"] == "paused"
         assert run["status"] == "paused", f"Run should be paused, got: {run['status']}"
         assert run["node_runs"]["start"]["status"] == "completed"
         assert run["node_runs"]["node_1"]["status"] == "paused"
+        assert run["node_runs"]["node_2"]["status"] == "pending"
 
-        # 3. Resume the run
+        # 3. Resume the run (now returns SSE stream)
         resume_data = {
-            "action": "edit",
+            "action": "approve",
             "modified_outputs": {"result": "approved"}
         }
-        res = await ac.post(f"/runs/{run_id}/nodes/node_1/resume", json=resume_data)
+        res = await ac.post(f"/runs/{run_id}/resume?workflow_id={wf_id}", json=resume_data)
         assert res.status_code == 200, f"Failed to resume run: {res.text}"
-        resumed_run = res.json()
 
-        # Verify it completed after resuming
-        assert resumed_run["status"] == "completed"
+        # Parse SSE stream to find done event
+        done_found = False
+        for line in res.text.split("\n\n"):
+            if line.startswith("data: "):
+                import json as json_mod
+                event = json_mod.loads(line[6:])
+                if event.get("type") == "done":
+                    assert event.get("final_status") == "completed"
+                    done_found = True
+        assert done_found, f"No done event found in stream: {res.text}"
 
         # 4. Fetch the final run state
-        res = await ac.get(f"/runs/{run_id}")
+        res = await ac.get(f"/runs/{run_id}?workflow_id={wf_id}")
         assert res.status_code == 200, f"Failed to fetch run: {res.text}"
         final_run = res.json()
         assert final_run["status"] == "completed"
+
+        # Verify list again
+        res = await ac.get(f"/workflows/{wf_id}/runs")
+        assert res.json()[0]["status"] == "completed"

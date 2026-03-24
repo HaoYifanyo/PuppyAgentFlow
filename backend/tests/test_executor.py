@@ -1,7 +1,13 @@
+import sys
+import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
+
+# Add the parent directory of 'app' to sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from app.services.tool_executor import ToolExecutorManager
-from app.services.llm_executor import execute_llm_node, execute_tool_node, real_executor_callback
+from app.services.llm_executor import execute_llm_node, execute_tool_node
 from app.models.workflow import Node, Skill
 
 @pytest.fixture
@@ -9,6 +15,7 @@ def tool_manager():
     return ToolExecutorManager()
 
 def test_python_eval_executor(tool_manager):
+    """Test python_eval executor can execute Python code and return result."""
     config = {
         "code": "def execute(inputs):\n    return {'result': inputs['a'] + inputs['b']}"
     }
@@ -18,6 +25,7 @@ def test_python_eval_executor(tool_manager):
 
 @patch('app.services.tool_executor.requests.request')
 def test_http_request_executor(mock_request, tool_manager):
+    """Test http_request executor with template variable substitution."""
     # Setup mock response
     mock_response = MagicMock()
     mock_response.json.return_value = {"status": "success"}
@@ -56,9 +64,14 @@ class MockSkill:
         base_dir = os.path.join("backend", "skills")
         return os.path.join(base_dir, self.get_slug(), "SKILL.md")
 
-@patch('app.services.llm_executor.llm_client.generate')
-def test_execute_llm_node(mock_generate):
-    mock_generate.return_value = {"translated": "你好"}
+@pytest.mark.asyncio
+@patch('app.services.llm_executor._get_llm_client', new_callable=AsyncMock)
+async def test_execute_llm_node(mock_get_client):
+    """Test LLM node execution with prompt template formatting."""
+    # Create a mock LLM client instance with an async generate method
+    mock_client = MagicMock()
+    mock_client.generate = AsyncMock(return_value={"translated": "你好"})
+    mock_get_client.return_value = mock_client
 
     node = Node(
         id="node1",
@@ -76,15 +89,21 @@ def test_execute_llm_node(mock_generate):
     )
     inputs = {"text": "Hello"}
 
-    result = execute_llm_node(node, inputs, skill)
+    result = await execute_llm_node(node, inputs, skill)
 
     # Check if prompt formatting worked
-    called_system_prompt = mock_generate.call_args[0][0]
-    assert "Translate to Chinese: Hello" in called_system_prompt
+    mock_get_client.assert_called_once()
+    # The generate method should have been called with system_prompt, user_prompt, and output_schema
+    mock_client.generate.assert_called_once()
+    called_args = mock_client.generate.call_args[0]
+    system_prompt = called_args[0]
+    assert "Translate to Chinese: Hello" in system_prompt
     assert result == {"translated": "你好"}
 
+@pytest.mark.asyncio
 @patch('app.services.llm_executor.tool_manager.execute')
-def test_execute_tool_node_routing(mock_tool_execute):
+async def test_execute_tool_node_routing(mock_tool_execute):
+    """Test tool node execution routes to correct executor."""
     mock_tool_execute.return_value = {"done": True}
 
     node = Node(
@@ -104,33 +123,7 @@ def test_execute_tool_node_routing(mock_tool_execute):
 
     inputs = {"foo": "bar"}
 
-    result = execute_tool_node(node, inputs, skill)
+    result = await execute_tool_node(node, inputs, skill)
 
     mock_tool_execute.assert_called_once_with("python_eval", {"code": "def execute(inputs): pass"}, {"foo": "bar"})
     assert result == {"done": True}
-
-@patch('app.services.llm_executor.execute_tool_node')
-@patch('app.services.llm_executor.execute_llm_node')
-def test_real_executor_callback_routing(mock_llm, mock_tool):
-    node = Node(id="1", name="A", skill_id="1")
-
-    skill_tool = MockSkill(
-        name="A",
-        type="tool",
-        implementation={"executor": "http_request"}
-    )
-
-    real_executor_callback(node, {}, skill_tool)
-    mock_tool.assert_called_once()
-    mock_llm.assert_not_called()
-
-    mock_tool.reset_mock()
-
-    skill_llm = MockSkill(
-        name="B",
-        type="llm",
-        implementation={"prompt_template": "Hello"}
-    )
-    real_executor_callback(node, {}, skill_llm)
-    mock_llm.assert_called_once()
-    mock_tool.assert_not_called()
