@@ -62,7 +62,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
 
   if (!isOpen || !node) return null;
 
-  const isLlmNode = skillType === 'llm';
+  const needsAgent = skillType === 'llm' || skillType === 'browser_use';
 
   const handleSave = () => {
     setError(null);
@@ -147,12 +147,17 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
             />
           </div>
 
-          {/* Puppy Agent Selector — only for LLM nodes */}
-          {!node.is_start_node && isLlmNode && (
+          {/* Puppy Agent Selector — for LLM and Browser Use nodes */}
+          {!node.is_start_node && needsAgent && (
             <div className="space-y-1">
               <Label className="flex items-center gap-1.5">
                 <Dog className="w-3.5 h-3.5 text-rose-400" /> Puppy Agent
               </Label>
+              <p className="text-xs text-stone-500">
+                {skillType === 'browser_use' 
+                  ? 'Browser Use requires an Agent to provide LLM capabilities.' 
+                  : 'Select the LLM provider for this node.'}
+              </p>
               <select
                 value={agentId}
                 onChange={e => setAgentId(e.target.value)}
