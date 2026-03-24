@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Loader2, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog } from 'lucide-react';
+import { Play, Loader2, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog, Square, RotateCcw } from 'lucide-react';
 import { Button } from './ui/Button';
 
 interface NavbarProps {
@@ -14,6 +14,8 @@ interface NavbarProps {
   onCreateNewFlow: () => void;
   onClearCanvas: () => void;
   onPrepareRun: () => void;
+  onTerminateRun: () => void;
+  onResetRun: () => void;
   onOpenAgentLibrary: () => void;
 }
 
@@ -45,6 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onCreateNewFlow,
   onClearCanvas,
   onPrepareRun,
+  onTerminateRun,
+  onResetRun,
   onOpenAgentLibrary,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -64,12 +68,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     runStatus === 'paused' ? 'text-amber-500' :
     runStatus === 'completed' ? 'text-green-500' :
     runStatus === 'error' ? 'text-red-500' :
+    runStatus === 'terminated' ? 'text-gray-500' :
     'text-rose-500';
 
   const statusDot =
     runStatus === 'paused' ? 'bg-amber-400' :
     runStatus === 'completed' ? 'bg-green-400' :
     runStatus === 'error' ? 'bg-red-400' :
+    runStatus === 'terminated' ? 'bg-gray-400' :
     'bg-rose-400';
 
   return (
@@ -148,15 +154,27 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Primary action */}
-        <Button
-          className="ml-2"
-          size="sm"
-          onClick={onPrepareRun}
-          disabled={nodesLength === 0 || ['running', 'paused'].includes(runStatus)}
-          icon={runStatus === 'running' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-        >
-          Run
-        </Button>
+        {['completed', 'terminated', 'error'].includes(runStatus) ? (
+          <Button
+            className="ml-2"
+            variant="secondary"
+            size="sm"
+            onClick={onResetRun}
+            icon={<RotateCcw className="w-3.5 h-3.5" />}
+          >
+            Reset
+          </Button>
+        ) : (
+          <Button
+            className={`ml-2 ${runStatus === 'running' ? 'bg-red-500 hover:bg-red-600' : ''}`}
+            size="sm"
+            onClick={runStatus === 'running' ? onTerminateRun : onPrepareRun}
+            disabled={nodesLength === 0 || ['paused'].includes(runStatus)}
+            icon={runStatus === 'running' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+          >
+            {runStatus === 'running' ? 'Stop' : 'Run'}
+          </Button>
+        )}
       </div>
     </header>
   );

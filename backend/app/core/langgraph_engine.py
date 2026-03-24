@@ -8,6 +8,7 @@ import os
 
 from app.core.state import WorkflowState
 from app.services.llm_executor import execute_llm_node, execute_tool_node
+from app.models.workflow import WorkflowRun, WorkflowStatus
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +72,23 @@ def make_langgraph_node(node_model, skill_model):
     """
     Creates an async LangGraph compatible node executor function.
     """
-    async def executor(state: WorkflowState) -> dict:
+    async def executor(state: WorkflowState, config: dict = {}) -> dict:
         print(f"Executing node: {node_model.name} ({node_model.id})")
+
+        # Check for workflow termination
+        if config:
+            thread_id = config.get("configurable", {}).get("thread_id")
+            if thread_id:
+                run_record = await WorkflowRun.get(thread_id)
+                if run_record and run_record.status == WorkflowStatus.TERMINATED:
+                    return {
+                        "terminated": True,
+                        "error": "Workflow terminated by user",
+                        "executed_nodes": [],
+                        "current_node_id": node_model.id,
+                        "node_inputs": {},
+                        "node_outputs": {},
+                    }
 
         node_inputs = _build_node_inputs(state.get("context", {}), skill_model)
 
@@ -107,7 +123,22 @@ def make_batch_reader(node_model, skill_model):
     Creates a batch reader node that passes through context for fan-out.
     Does not execute the skill - just prepares for batch processing.
     """
-    async def reader(state: WorkflowState) -> dict:
+    async def reader(state: WorkflowState, config: dict = {}) -> dict:
+        # Check for workflow termination
+        if config:
+            thread_id = config.get("configurable", {}).get("thread_id")
+            if thread_id:
+                run_record = await WorkflowRun.get(thread_id)
+                if run_record and run_record.status == WorkflowStatus.TERMINATED:
+                    return {
+                        "terminated": True,
+                        "error": "Workflow terminated by user",
+                        "executed_nodes": [],
+                        "current_node_id": node_model.id,
+                        "node_inputs": {},
+                        "node_outputs": {},
+                    }
+
         current_context = state.get("context", {})
         items = _find_list_in_context(current_context)
         logger.info(f"Batch reader '{node_model.name}': found {len(items) if items else 0} items")
@@ -127,7 +158,22 @@ def make_batch_worker(node_model, skill_model):
     Creates a batch worker node that processes a single item.
     Receives state with __batch_item__ and __batch_index__.
     """
-    async def worker(state: WorkflowState) -> dict:
+    async def worker(state: WorkflowState, config: dict = {}) -> dict:
+        # Check for workflow termination
+        if config:
+            thread_id = config.get("configurable", {}).get("thread_id")
+            if thread_id:
+                run_record = await WorkflowRun.get(thread_id)
+                if run_record and run_record.status == WorkflowStatus.TERMINATED:
+                    worker_id = f"{node_model.id}__worker"
+                    return {
+                        "terminated": True,
+                        "error": "Workflow terminated by user",
+                        "executed_nodes": [worker_id],
+                        "current_node_id": worker_id,
+                        "batch_collector": [{"index": state.get("__batch_index__", 0), "item": state.get("__batch_item__"), "error": "Workflow terminated by user"}],
+                    }
+
         item = state.get("__batch_item__")
         index = state.get("__batch_index__", 0)
         

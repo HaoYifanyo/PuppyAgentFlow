@@ -20,6 +20,7 @@ class WorkflowStatus(str, Enum):
     PAUSED = "paused"
     COMPLETED = "completed"
     ERROR = "error"
+    TERMINATED = "terminated"
 
 class Skill(Document):
     name: str

@@ -47,9 +47,12 @@ async def format_run_response(
     has_next = len(state_snapshot.next) > 0
     values = state_snapshot.values or {}
     has_error = bool(values.get("error"))
+    has_terminated = bool(values.get("terminated"))
 
     if override_status is not None:
         status = override_status
+    elif has_terminated:
+        status = WorkflowStatus.TERMINATED
     elif has_error:
         status = WorkflowStatus.ERROR
     elif has_next:
@@ -71,7 +74,16 @@ async def format_run_response(
 
     node_runs = {}
     for node in workflow.nodes:
-        if has_error and node.id == current_node_id:
+        if has_terminated and node.id == current_node_id:
+            # Workflow terminated by user
+            node_runs[node.id] = {
+                "node_id": node.id,
+                "status": NodeStatus.ERROR,
+                "inputs": node_inputs_map.get(node.id),
+                "outputs": node_outputs_map.get(node.id),
+                "error": "Workflow terminated by user"
+            }
+        elif has_error and node.id == current_node_id:
             # Execution error (LLM/skill failure)
             node_runs[node.id] = {
                 "node_id": node.id,

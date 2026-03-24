@@ -239,6 +239,17 @@ export const useWorkflowRun = (
                   })
                 );
                 setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+              } else if (data.type === "terminated") {
+                const rid = data.run_id || "";
+                setRunId(rid);
+                setRunStatus("terminated");
+                setNodes((nds) =>
+                  nds.map((n) => ({
+                    ...n,
+                    data: { ...n.data, globalRunStatus: "terminated" },
+                  }))
+                );
+                setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
               } else if (data.type === "error") {
                 throw new Error(data.message || "Stream error");
               }
@@ -370,6 +381,78 @@ export const useWorkflowRun = (
     [runId, workflowId, setNodes, processStream]
   );
 
+  // Terminate workflow run
+  const terminateRun = useCallback(async () => {
+    if (!runId || !workflowId) return;
+    try {
+      const response = await fetch(
+        `/api/runs/${runId}/terminate?workflow_id=${workflowId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setRunStatus("terminated");
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: { ...n.data, globalRunStatus: "terminated" },
+        }))
+      );
+      setIsPolling(false);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message ?? "Failed to terminate workflow.");
+    }
+  }, [runId, workflowId, setNodes]);
+
+  // Reset workflow run (delete run record)
+  const resetRun = useCallback(async () => {
+    if (!runId || !workflowId) return;
+    try {
+      const response = await fetch(
+        `/api/runs/${runId}?workflow_id=${workflowId}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Reset all state
+      setRunId(null);
+      setRunStatus("idle");
+      setIsPolling(false);
+      nodeUpdatesRef.current = {};
+      streamingTokensRef.current = {};
+      
+      // Clear node run data
+      setNodes((nds) =>
+        nds.map((n) => ({
+          ...n,
+          data: {
+            ...n.data,
+            runData: undefined,
+            globalRunStatus: "idle",
+          },
+        }))
+      );
+      setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message ?? "Failed to reset workflow.");
+    }
+  }, [runId, workflowId, setNodes, setEdges]);
+
   // Polling loop
   const pollRunStatus = useCallback(async () => {
     if (!runId || !workflowId) return;
@@ -381,7 +464,7 @@ export const useWorkflowRun = (
       setRunStatus(currentRun.status);
       updateNodeStates(currentRun);
 
-      if (["completed", "paused", "error"].includes(currentRun.status)) {
+      if (["completed", "paused", "error", "terminated"].includes(currentRun.status)) {
         setIsPolling(false);
       }
     } catch (e) {
@@ -446,6 +529,8 @@ export const useWorkflowRun = (
     setRootNodeData,
     executeRun,
     handleResume,
+    terminateRun,
+    resetRun,
     prepareRun,
     saveWorkflow,
     error,

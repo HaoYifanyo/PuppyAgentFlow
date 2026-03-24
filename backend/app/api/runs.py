@@ -74,6 +74,61 @@ async def resume_run(run_id: str, workflow_id: str, request: ResumeRequest):
     )
 
 
+@router.post("/{run_id}/terminate")
+async def terminate_run(run_id: str, workflow_id: str):
+    try:
+        wf_oid = PydanticObjectId(workflow_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid workflow_id")
+
+    workflow = await Workflow.get(wf_oid)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    run_record = await WorkflowRun.find_one(WorkflowRun.id == run_id)
+    if not run_record:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    if run_record.status not in [WorkflowStatus.RUNNING, WorkflowStatus.PAUSED]:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot terminate run with status: {run_record.status}"
+        )
+
+    run_record.status = WorkflowStatus.TERMINATED
+    await run_record.save()
+
+    return {
+        "run_id": run_id,
+        "status": "terminated",
+        "message": "Workflow termination requested"
+    }
+
+
+@router.delete("/{run_id}")
+async def reset_run(run_id: str, workflow_id: str):
+    try:
+        wf_oid = PydanticObjectId(workflow_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid workflow_id")
+
+    workflow = await Workflow.get(wf_oid)
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    run_record = await WorkflowRun.find_one(WorkflowRun.id == run_id)
+    if not run_record:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    await run_record.delete()
+
+    return {
+        "run_id": run_id,
+        "status": "deleted",
+        "message": "Run record deleted successfully"
+    }
+
+
 @router.get("/{run_id}")
 async def get_run(run_id: str, workflow_id: str):
     try:

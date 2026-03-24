@@ -77,6 +77,8 @@ function App() {
     rootNodeData,
     executeRun,
     handleResume,
+    terminateRun,
+    resetRun,
     prepareRun,
     saveWorkflow,
     error: runError,
@@ -142,6 +144,8 @@ function App() {
         onCreateNewFlow={handleCreateNewFlow}
         onClearCanvas={createNewWorkflow}
         onPrepareRun={prepareRun}
+        onTerminateRun={terminateRun}
+        onResetRun={resetRun}
         onOpenAgentLibrary={() => setAgentLibraryOpen(true)}
       />
 
@@ -170,6 +174,7 @@ function App() {
               if (status === 'completed') return '#4ade80';
               if (status === 'error') return '#f87171';
               if (status === 'running') return '#60a5fa';
+              if (status === 'terminated') return '#9ca3af';
               return '#d1d5db';
             }} />
           </ReactFlow>

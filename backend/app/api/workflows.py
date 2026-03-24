@@ -101,6 +101,12 @@ async def _handle_stream(graph, config, workflow, run_id, run_record):
             stream_mode=["messages", "updates", "values"],
             version="v2",
         ):
+            # Check if workflow was terminated
+            current_run = await WorkflowRun.get(run_id)
+            if current_run and current_run.status == WorkflowStatus.TERMINATED:
+                yield f"data: {json.dumps({'type': 'terminated', 'run_id': run_id, 'workflow_id': str(workflow.id), 'final_status': 'terminated', 'message': 'Workflow terminated by user'})}\n\n"
+                return
+
             mode = chunk["type"]
             data = chunk.get("data")
 
@@ -130,6 +136,12 @@ async def _handle_stream(graph, config, workflow, run_id, run_record):
                 return
 
             yield f"data: {json.dumps({'type': mode, 'data': serializable_data})}\n\n"
+
+        # Check one more time before completing
+        current_run = await WorkflowRun.get(run_id)
+        if current_run and current_run.status == WorkflowStatus.TERMINATED:
+            yield f"data: {json.dumps({'type': 'terminated', 'run_id': run_id, 'workflow_id': str(workflow.id), 'final_status': 'terminated', 'message': 'Workflow terminated by user'})}\n\n"
+            return
 
         yield f"data: {json.dumps({'type': 'done', 'run_id': run_id, 'workflow_id': str(workflow.id), 'final_status': 'completed'})}\n\n"
         run_record.status = WorkflowStatus.COMPLETED
