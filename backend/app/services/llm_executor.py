@@ -44,6 +44,28 @@ async def _get_llm_client(node: Node, streaming: bool = False) -> LLMClient:
     )
 
 
+async def _get_agent_for_browser_use(node: Node) -> Agent:
+    """
+    Get the Agent document for browser_use executor.
+    Reuses the same Agent retrieval logic as LLM nodes.
+    """
+    agent_id = getattr(node, "agent_id", None)
+    if not agent_id:
+        raise RuntimeError("browser_use node must have a Puppy Agent assigned. Please select an agent in the node settings.")
+
+    from beanie import PydanticObjectId
+
+    agent = await Agent.get(PydanticObjectId(agent_id))
+    if not agent:
+        raise RuntimeError(f"Agent not found for id: {agent_id}")
+
+    api_key = decrypt_text(agent.api_key_encrypted)
+    if not api_key:
+        raise RuntimeError("Agent is missing API key. Please update the Puppy Agent with a valid key.")
+
+    return agent
+
+
 async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
 
