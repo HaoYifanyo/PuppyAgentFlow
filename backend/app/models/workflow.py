@@ -23,7 +23,7 @@ class WorkflowStatus(str, Enum):
 
 class Skill(Document):
     name: str
-    type: str = Field(..., description="e.g., 'tool' or 'llm'")
+    type: str = Field(..., description="e.g., 'tool', 'llm', or 'browser_use'")
     description: str = ""
     input_schema: Dict[str, Any] = {}
     output_schema: Dict[str, Any] = {}

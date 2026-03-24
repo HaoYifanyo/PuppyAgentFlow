@@ -175,13 +175,21 @@ Given a user's natural language request to create a node/skill, generate a JSON 
 The JSON object MUST follow this exact schema:
 {
   "name": "A short, clear name for the skill",
-  "type": "Must be either 'llm' or 'tool'",
+  "type": "Must be either 'llm', 'tool', or 'browser_use'",
   "description": "A 1-2 sentence description of what the skill does",
   "input_schema": { "key_name": "string" },
   "output_schema": { "key_name": "string" },
   "implementation": {
     "prompt_template": "# skill description\n...\n## input data\n{{key_name}}\n"
   }
+}
+
+For browser_use type, use this implementation format:
+{
+  "executor_type": "browser_use",
+  "task_template": "Natural language task description with {{variable}} placeholders",
+  "max_steps": 20,
+  "browser_config": {"headless": false}
 }"""
     user_prompt = f"User Request: {instruction}\nGenerate the JSON skill definition:"
     raw_text = await llm_client.generate(system_prompt, user_prompt)
