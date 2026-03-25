@@ -36,6 +36,10 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
   const [browserMaxSteps, setBrowserMaxSteps] = useState(20);
   const [browserHeadless, setBrowserHeadless] = useState(false);
   const [browserProfile, setBrowserProfile] = useState("");
+  const [browserChannel, setBrowserChannel] = useState("chromium");
+  const [browserExecutablePath, setBrowserExecutablePath] = useState("");
+  const [browserUserDataDir, setBrowserUserDataDir] = useState("");
+  const [browserProfileDirectory, setBrowserProfileDirectory] = useState("");
 
   useEffect(() => {
     if (!skill) return;
@@ -51,6 +55,10 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
       setBrowserMaxSteps(skill.implementation?.max_steps ?? 20);
       setBrowserHeadless(skill.implementation?.browser_config?.headless ?? false);
       setBrowserProfile(skill.implementation?.browser_config?.profile_name ?? "");
+      setBrowserChannel(skill.implementation?.browser_config?.channel ?? "chromium");
+      setBrowserExecutablePath(skill.implementation?.browser_config?.executable_path ?? "");
+      setBrowserUserDataDir(skill.implementation?.browser_config?.user_data_dir ?? "");
+      setBrowserProfileDirectory(skill.implementation?.browser_config?.profile_directory ?? "");
       setImplText("");
     } else {
       try {
@@ -71,18 +79,21 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
       return { prompt_template: implText };
     }
     if (type === "browser_use") {
-      const impl: Record<string, any> = {
+      const browserConfig: Record<string, any> = {
+        headless: browserHeadless,
+      };
+      if (browserProfile.trim()) browserConfig.profile_name = browserProfile.trim();
+      if (browserChannel !== "chromium") browserConfig.channel = browserChannel;
+      if (browserExecutablePath.trim()) browserConfig.executable_path = browserExecutablePath.trim();
+      if (browserUserDataDir.trim()) browserConfig.user_data_dir = browserUserDataDir.trim();
+      if (browserProfileDirectory.trim()) browserConfig.profile_directory = browserProfileDirectory.trim();
+
+      return {
         executor_type: "browser_use",
         task_template: browserTask,
         max_steps: browserMaxSteps,
-        browser_config: {
-          headless: browserHeadless,
-        },
+        browser_config: browserConfig,
       };
-      if (browserProfile.trim()) {
-        impl.browser_config.profile_name = browserProfile.trim();
-      }
-      return impl;
     }
     try {
       return JSON.parse(implText);
@@ -220,6 +231,81 @@ export const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onClose, 
                   />
                 </button>
               </div>
+
+              {/* Advanced Browser Settings */}
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-stone-600 hover:text-stone-800 py-2">
+                  <span>Advanced Browser Settings</span>
+                  <span className="text-stone-400 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div className="space-y-3 pt-2 border-t border-stone-100">
+                  {/* Browser Channel */}
+                  <div className="space-y-1">
+                    <Label>Browser Type</Label>
+                    <select
+                      value={browserChannel}
+                      onChange={(e) => setBrowserChannel(e.target.value)}
+                      className="w-full px-3 py-2 border border-rose-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-stone-50 hover:bg-white transition-colors cursor-pointer"
+                      disabled={loading}
+                    >
+                      <option value="chromium">Chromium (Default, playwright built-in)</option>
+                      <option value="chrome">Chrome (System installed)</option>
+                      <option value="chrome-beta">Chrome Beta</option>
+                      <option value="msedge">Microsoft Edge</option>
+                    </select>
+                    <p className="text-xs text-stone-400">
+                      {browserChannel === "chromium" 
+                        ? "Uses playwright's built-in Chromium browser" 
+                        : `Uses system installed ${browserChannel} browser`}
+                    </p>
+                  </div>
+
+                  {/* Executable Path */}
+                  <div className="space-y-1">
+                    <Label>Browser Executable Path (Optional)</Label>
+                    <Input
+                      type="text"
+                      value={browserExecutablePath}
+                      onChange={(e) => setBrowserExecutablePath(e.target.value)}
+                      placeholder="e.g. C:\Program Files\Google\Chrome\Application\chrome.exe"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-stone-400">
+                      Custom browser path. Leave empty to auto-detect.
+                    </p>
+                  </div>
+
+                  {/* User Data Directory */}
+                  <div className="space-y-1">
+                    <Label>User Data Directory (Optional)</Label>
+                    <Input
+                      type="text"
+                      value={browserUserDataDir}
+                      onChange={(e) => setBrowserUserDataDir(e.target.value)}
+                      placeholder="e.g. C:\Users\YourName\AppData\Local\Google\Chrome\User Data"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-stone-400">
+                      Use existing Chrome profile to keep login state. Close Chrome first.
+                    </p>
+                  </div>
+
+                  {/* Profile Directory */}
+                  <div className="space-y-1">
+                    <Label>Profile Directory (Optional)</Label>
+                    <Input
+                      type="text"
+                      value={browserProfileDirectory}
+                      onChange={(e) => setBrowserProfileDirectory(e.target.value)}
+                      placeholder="e.g. Default, Profile 1"
+                      disabled={loading}
+                    />
+                    <p className="text-xs text-stone-400">
+                      Chrome profile name. Use with User Data Directory.
+                    </p>
+                  </div>
+                </div>
+              </details>
             </>
           ) : (
             <div className="space-y-1">

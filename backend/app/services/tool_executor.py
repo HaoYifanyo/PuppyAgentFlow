@@ -104,11 +104,18 @@ class ToolExecutorManager:
         # Browser configuration
         browser_config = config.get("browser_config", {})
         headless = browser_config.get("headless", False)
+        profile_name = browser_config.get("profile_name", "")
+        channel = browser_config.get("channel", "chromium")
+        executable_path = browser_config.get("executable_path", "")
+        user_data_dir = browser_config.get("user_data_dir", "")
+        profile_directory = browser_config.get("profile_directory", "")
         max_steps = config.get("max_steps", 20)
 
         # Build LLM from Agent configuration (sync wrapper for async)
         async def _build_and_run():
             from browser_use import Agent
+            from browser_use.browser.profile import BrowserProfile
+            import os
 
             # Get Agent configuration from config (passed by execute_tool_node)
             agent_config = config.get("agent_config", {})
@@ -122,14 +129,49 @@ class ToolExecutorManager:
             # Build LLM based on provider
             llm = self._build_llm_for_browser_use(provider, model_id, api_key)
 
+            # Build browser profile
+            profile_kwargs = {"headless": headless}
+            
+            # Set browser channel (chromium, chrome, msedge, etc.)
+            if channel and channel != "chromium":
+                profile_kwargs["channel"] = channel
+            
+            # Set custom executable path
+            if executable_path:
+                profile_kwargs["executable_path"] = executable_path
+            
+            # Set user data directory for session persistence
+            if user_data_dir:
+                profile_kwargs["user_data_dir"] = user_data_dir
+            elif profile_name:
+                # Use profile_name as user_data_dir if no explicit user_data_dir
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                profile_dir = os.path.join(backend_dir, "browser_profiles", profile_name)
+                os.makedirs(profile_dir, exist_ok=True)
+                profile_kwargs["user_data_dir"] = profile_dir
+                print(f"Using browser profile directory: {profile_dir}")
+            
+            # Set profile directory (Default, Profile 1, etc.)
+            if profile_directory:
+                profile_kwargs["profile_directory"] = profile_directory
+            
+            # If profile_name is provided and no user_data_dir, use storage_state for simple session persistence
+            if profile_name and not user_data_dir and not profile_kwargs.get("user_data_dir"):
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                storage_path = os.path.join(backend_dir, "browser_profiles", f"{profile_name}.json")
+                print(f"Loading browser profile from: {storage_path}")
+                profile_kwargs["storage_state"] = storage_path
+
+            browser_profile = BrowserProfile(**profile_kwargs)
+
             # Create and run agent
             agent = Agent(
                 task=task,
                 llm=llm,
-                max_steps=max_steps,
+                browser_profile=browser_profile,
             )
 
-            result = await agent.run()
+            result = await agent.run(max_steps=max_steps)
             return {"result": result.final_result()}
 
         # Run async function
