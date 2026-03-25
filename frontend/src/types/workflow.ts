@@ -1,6 +1,16 @@
-export type NodeStatus = 'pending' | 'running' | 'paused' | 'completed' | 'error';
+export type NodeStatus =
+  | "pending"
+  | "running"
+  | "paused"
+  | "completed"
+  | "error";
 
-export type AgentProvider = 'gemini' | 'openai' | 'anthropic' | 'custom';
+export type AgentProvider =
+  | "gemini"
+  | "openai"
+  | "anthropic"
+  | "openrouter"
+  | "custom";
 
 export interface Agent {
   _id?: string;

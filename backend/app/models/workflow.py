@@ -49,7 +49,7 @@ class Skill(Document):
 
 class Agent(Document):
     name: str
-    provider: str = Field(..., description="gemini | openai | anthropic | custom")
+    provider: str = Field(..., description="gemini | openai | anthropic | openrouter | custom")
     model_id: str
     api_key_encrypted: Optional[str] = Field(default=None)
     system_prompt: Optional[str] = None

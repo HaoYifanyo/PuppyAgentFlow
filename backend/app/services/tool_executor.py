@@ -108,12 +108,12 @@ class ToolExecutorManager:
         channel = browser_config.get("channel", "chromium")
         executable_path = browser_config.get("executable_path", "")
         user_data_dir = browser_config.get("user_data_dir", "")
-        profile_directory = browser_config.get("profile_directory", "")
+        profile_directory = browser_config.get("profile_directory", "Default")
         max_steps = config.get("max_steps", 20)
 
         # Build LLM from Agent configuration (sync wrapper for async)
         async def _build_and_run():
-            from browser_use import Agent
+            from browser_use import Agent, Browser
             from browser_use.browser.profile import BrowserProfile
             import os
 
@@ -129,47 +129,44 @@ class ToolExecutorManager:
             # Build LLM based on provider
             llm = self._build_llm_for_browser_use(provider, model_id, api_key)
 
-            # Build browser profile
-            profile_kwargs = {"headless": headless}
-            
-            # Set browser channel (chromium, chrome, msedge, etc.)
-            if channel and channel != "chromium":
-                profile_kwargs["channel"] = channel
-            
-            # Set custom executable path
-            if executable_path:
-                profile_kwargs["executable_path"] = executable_path
-            
-            # Set user data directory for session persistence
+            # Use system Chrome with user_data_dir if provided
             if user_data_dir:
-                profile_kwargs["user_data_dir"] = user_data_dir
-            elif profile_name:
-                # Use profile_name as user_data_dir if no explicit user_data_dir
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                profile_dir = os.path.join(backend_dir, "browser_profiles", profile_name)
-                os.makedirs(profile_dir, exist_ok=True)
-                profile_kwargs["user_data_dir"] = profile_dir
-                print(f"Using browser profile directory: {profile_dir}")
-            
-            # Set profile directory (Default, Profile 1, etc.)
-            if profile_directory:
-                profile_kwargs["profile_directory"] = profile_directory
-            
-            # If profile_name is provided and no user_data_dir, use storage_state for simple session persistence
-            if profile_name and not user_data_dir and not profile_kwargs.get("user_data_dir"):
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                storage_path = os.path.join(backend_dir, "browser_profiles", f"{profile_name}.json")
-                print(f"Loading browser profile from: {storage_path}")
-                profile_kwargs["storage_state"] = storage_path
-
-            browser_profile = BrowserProfile(**profile_kwargs)
-
-            # Create and run agent
-            agent = Agent(
-                task=task,
-                llm=llm,
-                browser_profile=browser_profile,
-            )
+                print(f"Using system Chrome with user_data_dir: {user_data_dir}, profile: {profile_directory}")
+                browser = Browser(
+                    headless=headless,
+                    user_data_dir=user_data_dir,
+                    chrome_instance_path=executable_path if executable_path else None,
+                )
+                agent = Agent(
+                    task=task,
+                    llm=llm,
+                    browser=browser,
+                )
+            else:
+                # Load storage_state if profile_name is provided
+                storage_state = None
+                if profile_name:
+                    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    storage_path = os.path.join(backend_dir, "browser_profiles", f"{profile_name}.json")
+                    print(f"Loading browser profile from: {storage_path}")
+                    if os.path.exists(storage_path):
+                        # Pass file path directly to storage_state (browser-use handles the loading)
+                        storage_state = storage_path
+                        print(f"Using storage state file: {storage_path}")
+                    else:
+                        print(f"Warning: Profile file not found: {storage_path}")
+                
+                # Create Browser directly with storage_state file path
+                browser = Browser(
+                    headless=headless,
+                    storage_state=storage_state,
+                    user_data_dir=None,
+                )
+                agent = Agent(
+                    task=task,
+                    llm=llm,
+                    browser=browser,
+                )
 
             result = await agent.run(max_steps=max_steps)
             return {"result": result.final_result()}
@@ -199,5 +196,13 @@ class ToolExecutorManager:
         elif provider == "gemini":
             from browser_use import ChatGoogle
             return ChatGoogle(model=model_id, api_key=api_key)
+        elif provider == "openrouter":
+            # OpenRouter is OpenAI-compatible
+            from browser_use import ChatOpenAI
+            return ChatOpenAI(
+                model=model_id,
+                api_key=api_key,
+                base_url="https://openrouter.ai/api/v1"
+            )
         else:
             raise ValueError(f"Unsupported provider for browser_use: {provider}")

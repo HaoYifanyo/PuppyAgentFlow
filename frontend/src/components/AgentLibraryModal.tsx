@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Plus, Trash2, Save, Dog } from 'lucide-react';
-import type { Agent, AgentProvider } from '../types/workflow';
-import { Modal } from './ui/Modal';
-import { Button } from './ui/Button';
-import { Input, Label, Textarea } from './ui/Input';
-import { extractId } from '../utils/id';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { Plus, Trash2, Save, Dog } from "lucide-react";
+import type { Agent, AgentProvider } from "../types/workflow";
+import { Modal } from "./ui/Modal";
+import { Button } from "./ui/Button";
+import { Input, Label, Textarea } from "./ui/Input";
+import { extractId } from "../utils/id";
 
 interface AgentLibraryModalProps {
   isOpen: boolean;
@@ -13,20 +13,33 @@ interface AgentLibraryModalProps {
   onAgentsChange: () => void;
 }
 
-const PROVIDER_OPTIONS: { value: AgentProvider; label: string; defaultModel: string }[] = [
-  { value: 'gemini', label: 'Google Gemini', defaultModel: 'gemini-2.5-flash' },
-  { value: 'openai', label: 'OpenAI', defaultModel: 'gpt-4o' },
-  { value: 'anthropic', label: 'Anthropic', defaultModel: 'claude-3-5-sonnet-20241022' },
-  { value: 'custom', label: 'Custom (OpenAI-compatible)', defaultModel: '' },
+const PROVIDER_OPTIONS: {
+  value: AgentProvider;
+  label: string;
+  defaultModel: string;
+}[] = [
+  { value: "gemini", label: "Google Gemini", defaultModel: "gemini-2.5-flash" },
+  { value: "openai", label: "OpenAI", defaultModel: "gpt-4o" },
+  {
+    value: "anthropic",
+    label: "Anthropic",
+    defaultModel: "claude-3-5-sonnet-20241022",
+  },
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    defaultModel: "stepfun/step-3.5-flash:free",
+  },
+  { value: "custom", label: "Custom (OpenAI-compatible)", defaultModel: "" },
 ];
 
-const EMPTY_FORM: Omit<Agent, '_id' | 'id'> = {
-  name: '',
-  provider: 'gemini',
-  model_id: 'gemini-2.5-flash',
-  api_key: '',
-  system_prompt: '',
-  base_url: '',
+const EMPTY_FORM: Omit<Agent, "_id" | "id"> = {
+  name: "",
+  provider: "gemini",
+  model_id: "gemini-2.5-flash",
+  api_key: "",
+  system_prompt: "",
+  base_url: "",
 };
 
 export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
@@ -36,7 +49,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
 }) => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [form, setForm] = useState<Omit<Agent, '_id' | 'id'>>(EMPTY_FORM);
+  const [form, setForm] = useState<Omit<Agent, "_id" | "id">>(EMPTY_FORM);
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,10 +60,10 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
 
   const fetchAgents = async () => {
     try {
-      const res = await axios.get('/api/agents');
+      const res = await axios.get("/api/agents");
       setAgents(res.data);
     } catch {
-      setError('Failed to load agents');
+      setError("Failed to load agents");
     }
   };
 
@@ -76,9 +89,9 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       provider: agent.provider,
       model_id: agent.model_id,
       // Never preload API key; users can only overwrite
-      api_key: '',
-      system_prompt: agent.system_prompt || '',
-      base_url: agent.base_url || '',
+      api_key: "",
+      system_prompt: agent.system_prompt || "",
+      base_url: agent.base_url || "",
     });
     setError(null);
   };
@@ -94,8 +107,8 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
   };
 
   const handleProviderChange = (provider: AgentProvider) => {
-    const opt = PROVIDER_OPTIONS.find(p => p.value === provider);
-    setForm(f => ({
+    const opt = PROVIDER_OPTIONS.find((p) => p.value === provider);
+    setForm((f) => ({
       ...f,
       provider,
       model_id: opt?.defaultModel || f.model_id,
@@ -103,9 +116,18 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!form.name.trim()) { setError('Name is required'); return; }
-    if (!form.model_id.trim()) { setError('Model ID is required'); return; }
-    if (isNew && (!form.api_key || !form.api_key.trim())) { setError('API key is required for new agents'); return; }
+    if (!form.name.trim()) {
+      setError("Name is required");
+      return;
+    }
+    if (!form.model_id.trim()) {
+      setError("Model ID is required");
+      return;
+    }
+    if (isNew && (!form.api_key || !form.api_key.trim())) {
+      setError("API key is required for new agents");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -122,11 +144,12 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       } else if (apiKeyModified && form.api_key) {
         payload.api_key = form.api_key.trim();
       }
-      if (form.system_prompt?.trim()) payload.system_prompt = form.system_prompt.trim();
+      if (form.system_prompt?.trim())
+        payload.system_prompt = form.system_prompt.trim();
       if (form.base_url?.trim()) payload.base_url = form.base_url.trim();
 
       if (isNew) {
-        await axios.post('/api/agents', payload);
+        await axios.post("/api/agents", payload);
       } else if (selectedId) {
         await axios.put(`/api/agents/${selectedId}`, payload);
       }
@@ -136,7 +159,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Save failed');
+      setError(e?.response?.data?.detail || "Save failed");
     } finally {
       setSaving(false);
     }
@@ -156,7 +179,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       await fetchAgents();
       onAgentsChange();
     } catch {
-      setError('Delete failed');
+      setError("Delete failed");
     }
   };
 
@@ -195,7 +218,9 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
               )}
               {agents.map((agent) => {
                 const id = extractId(agent._id || agent.id);
-                const providerLabel = PROVIDER_OPTIONS.find(p => p.value === agent.provider)?.label ?? agent.provider;
+                const providerLabel =
+                  PROVIDER_OPTIONS.find((p) => p.value === agent.provider)
+                    ?.label ?? agent.provider;
                 const isSelected = selectedId === id;
                 return (
                   <button
@@ -203,13 +228,19 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                     onClick={() => handleSelect(agent)}
                     className={`w-full text-left p-3 rounded-xl border transition-all duration-200 cursor-pointer ${
                       isSelected
-                        ? 'bg-white border-rose-200 shadow-sm shadow-rose-900/5 ring-1 ring-rose-400/20'
-                        : 'bg-transparent border-transparent hover:bg-white hover:border-rose-100'
+                        ? "bg-white border-rose-200 shadow-sm shadow-rose-900/5 ring-1 ring-rose-400/20"
+                        : "bg-transparent border-transparent hover:bg-white hover:border-rose-100"
                     }`}
                   >
-                    <div className="font-semibold text-xs text-stone-800 truncate">{agent.name}</div>
-                    <div className="text-[10px] text-stone-500 mt-1 truncate">{providerLabel}</div>
-                    <div className="text-[10px] font-mono text-stone-400 truncate mt-0.5">{agent.model_id}</div>
+                    <div className="font-semibold text-xs text-stone-800 truncate">
+                      {agent.name}
+                    </div>
+                    <div className="text-[10px] text-stone-500 mt-1 truncate">
+                      {providerLabel}
+                    </div>
+                    <div className="text-[10px] font-mono text-stone-400 truncate mt-0.5">
+                      {agent.model_id}
+                    </div>
                   </button>
                 );
               })}
@@ -226,36 +257,50 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
               <>
                 <Modal.Body className="flex-1 overflow-y-auto">
                   <div className="space-y-1">
-                    <Label>Name <span className="text-rose-500">*</span></Label>
+                    <Label>
+                      Name <span className="text-rose-500">*</span>
+                    </Label>
                     <Input
                       type="text"
                       data-testid="agent-name-input"
                       value={form.name}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, name: e.target.value }))
+                      }
                       placeholder="e.g. Flash Puppy"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label>Provider <span className="text-rose-500">*</span></Label>
+                      <Label>
+                        Provider <span className="text-rose-500">*</span>
+                      </Label>
                       <select
                         value={form.provider}
-                        onChange={e => handleProviderChange(e.target.value as AgentProvider)}
+                        onChange={(e) =>
+                          handleProviderChange(e.target.value as AgentProvider)
+                        }
                         className="w-full px-3 py-2 border border-rose-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-stone-50 hover:bg-white transition-colors cursor-pointer"
                       >
-                        {PROVIDER_OPTIONS.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        {PROVIDER_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
                         ))}
                       </select>
                     </div>
 
                     <div className="space-y-1">
-                      <Label>Model ID <span className="text-rose-500">*</span></Label>
+                      <Label>
+                        Model ID <span className="text-rose-500">*</span>
+                      </Label>
                       <Input
                         type="text"
                         value={form.model_id}
-                        onChange={e => setForm(f => ({ ...f, model_id: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, model_id: e.target.value }))
+                        }
                         className="font-mono"
                         placeholder="e.g. gemini-2.5-flash"
                       />
@@ -264,38 +309,49 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
 
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label>API Key <span className="text-rose-500">{isNew ? '*' : ''}</span></Label>
-                      <span className="text-[10px] text-stone-400">{isNew ? 'Required once' : 'Leave blank to keep existing'}</span>
+                      <Label>
+                        API Key{" "}
+                        <span className="text-rose-500">
+                          {isNew ? "*" : ""}
+                        </span>
+                      </Label>
+                      <span className="text-[10px] text-stone-400">
+                        {isNew
+                          ? "Required once"
+                          : "Leave blank to keep existing"}
+                      </span>
                     </div>
                     <div className="relative">
                       <Input
-                        type={showApiKey ? 'text' : 'password'}
+                        type={showApiKey ? "text" : "password"}
                         data-testid="agent-api-key-input"
                         value={form.api_key}
-                        onChange={e => {
+                        onChange={(e) => {
                           setApiKeyModified(true);
-                          setForm(f => ({ ...f, api_key: e.target.value }));
+                          setForm((f) => ({ ...f, api_key: e.target.value }));
                         }}
                         className="font-mono pr-16"
                         placeholder="sk-..."
                       />
                       <button
                         type="button"
-                        onClick={() => setShowApiKey(v => !v)}
+                        onClick={() => setShowApiKey((v) => !v)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-stone-400 hover:text-rose-500 font-medium px-1 transition-colors cursor-pointer"
                       >
-                        {showApiKey ? 'Hide' : 'Show'}
+                        {showApiKey ? "Hide" : "Show"}
                       </button>
                     </div>
                   </div>
 
-                  {form.provider === 'custom' && (
+                  {form.provider === "custom" && (
                     <div className="space-y-1">
                       <Label>Base URL</Label>
                       <Input
                         type="text"
                         value={form.base_url}
-                        onChange={e => setForm(f => ({ ...f, base_url: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, base_url: e.target.value }))
+                        }
                         className="font-mono"
                         placeholder="https://your-endpoint/v1"
                       />
@@ -305,26 +361,52 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <Label>System Prompt Override</Label>
-                      <span className="text-[10px] text-stone-400">Prepended to node prompt</span>
+                      <span className="text-[10px] text-stone-400">
+                        Prepended to node prompt
+                      </span>
                     </div>
                     <Textarea
                       value={form.system_prompt}
-                      onChange={e => setForm(f => ({ ...f, system_prompt: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          system_prompt: e.target.value,
+                        }))
+                      }
                       className="h-28"
                       placeholder="Optional: override the default system persona for this agent..."
                     />
                   </div>
 
-                  {error && <p className="text-xs text-red-500 font-medium bg-red-50 p-2 rounded-xl border border-red-100">{error}</p>}
+                  {error && (
+                    <p className="text-xs text-red-500 font-medium bg-red-50 p-2 rounded-xl border border-red-100">
+                      {error}
+                    </p>
+                  )}
                 </Modal.Body>
 
                 <Modal.Footer>
                   {!isNew ? (
                     confirmDeleteId ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-red-600 font-medium">Delete this agent?</span>
-                        <Button variant="secondary" size="sm" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-                        <Button variant="danger" size="sm" onClick={handleDeleteConfirm} data-testid="agent-delete-confirm">Confirm</Button>
+                        <span className="text-[10px] text-red-600 font-medium">
+                          Delete this agent?
+                        </span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setConfirmDeleteId(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={handleDeleteConfirm}
+                          data-testid="agent-delete-confirm"
+                        >
+                          Confirm
+                        </Button>
                       </div>
                     ) : (
                       <Button
@@ -337,9 +419,15 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                         Delete
                       </Button>
                     )
-                  ) : <div />}
+                  ) : (
+                    <div />
+                  )}
                   <div className="flex items-center gap-3">
-                    {saveSuccess && <span className="text-xs text-green-600 font-medium flex items-center gap-1 bg-green-50 px-2 py-1 rounded-md">✓ Saved successfully</span>}
+                    {saveSuccess && (
+                      <span className="text-xs text-green-600 font-medium flex items-center gap-1 bg-green-50 px-2 py-1 rounded-md">
+                        ✓ Saved successfully
+                      </span>
+                    )}
                     <Button
                       variant="primary"
                       onClick={handleSave}
@@ -347,7 +435,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                       data-testid="agent-save-btn"
                       icon={<Save className="w-4 h-4" />}
                     >
-                      {saving ? 'Saving...' : 'Save'}
+                      {saving ? "Saving..." : "Save"}
                     </Button>
                   </div>
                 </Modal.Footer>

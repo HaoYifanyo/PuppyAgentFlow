@@ -40,6 +40,14 @@ def _build_langchain_model(
             raise ValueError("model_id is required for anthropic provider")
         return ChatAnthropic(model=model, api_key=api_key, streaming=streaming)
 
+    elif provider == "openrouter":
+        from langchain_openai import ChatOpenAI
+        if not model:
+            raise ValueError("model_id is required for openrouter provider")
+        kwargs = {"model": model, "api_key": api_key, "streaming": streaming}
+        kwargs["base_url"] = base_url or "https://openrouter.ai/api/v1"
+        return ChatOpenAI(**kwargs)
+
     elif provider == "custom":
         # OpenAI-compatible endpoint
         from langchain_openai import ChatOpenAI
