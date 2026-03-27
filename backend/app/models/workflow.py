@@ -54,6 +54,7 @@ class Agent(Document):
     api_key_encrypted: Optional[str] = Field(default=None)
     system_prompt: Optional[str] = None
     base_url: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
 

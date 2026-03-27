@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Loader2, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog, Square, RotateCcw } from 'lucide-react';
+import { Play, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog, Square, RotateCcw } from 'lucide-react';
 import { Button } from './ui/Button';
+import { PuppyImage } from './PuppyImage';
+import { puppyImages } from '../assets/puppies';
 
 interface NavbarProps {
   workflowName: string;
@@ -82,7 +84,10 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="h-14 bg-white border-b border-rose-100 flex items-center justify-between px-4 shrink-0 shadow-sm shadow-rose-900/5 z-10">
       {/* Left: Logo */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="w-8 h-8 bg-rose-400 rounded-xl flex items-center justify-center text-white text-lg leading-none shadow-sm shadow-rose-200">🐶</div>
+        <div className="relative">
+          <PuppyImage size="md" src={puppyImages.corgi} className="shadow-sm shadow-rose-200 border-2 border-white" />
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-rose-400 rounded-full flex items-center justify-center text-white text-[8px] font-bold shadow-sm">AI</div>
+        </div>
         <h1 className="font-bold text-lg text-stone-800 tracking-tight">Puppy<span className="text-rose-500">Flow</span></h1>
       </div>
 

@@ -97,11 +97,20 @@ function App() {
 
   // Sync latest closures to node data
   useEffect(() => {
-    setNodes(nds => nds.map(n => ({
-      ...n,
-      data: { ...n.data, onResume: handleResume, onEditClick: handleEditNodeClick }
-    })));
-  }, [handleResume, handleEditNodeClick, setNodes]);
+    setNodes(nds => nds.map(n => {
+      const agentId = n.data?.node?.agent_id;
+      const agent = agents.find(a => (a._id || a.id) === agentId);
+      return {
+        ...n,
+        data: {
+          ...n.data,
+          onResume: handleResume,
+          onEditClick: handleEditNodeClick,
+          agentAvatarUrl: agent?.avatar_url,
+        }
+      };
+    }));
+  }, [handleResume, handleEditNodeClick, setNodes, agents]);
 
   const handleCreateNewFlow = async () => {
     if (nodes.length > 0) {

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Plus, Trash2, Save, Dog } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
 import type { Agent, AgentProvider } from "../types/workflow";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { Input, Label, Textarea } from "./ui/Input";
 import { extractId } from "../utils/id";
+import { PuppyImage } from "./PuppyImage";
+import { PuppyImageSelector } from "./PuppyImageSelector";
+import { defaultPuppy, puppyImages } from "../assets/puppies";
 
 interface AgentLibraryModalProps {
   isOpen: boolean;
@@ -40,6 +43,7 @@ const EMPTY_FORM: Omit<Agent, "_id" | "id"> = {
   api_key: "",
   system_prompt: "",
   base_url: "",
+  avatar_url: defaultPuppy,
 };
 
 export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
@@ -92,6 +96,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       api_key: "",
       system_prompt: agent.system_prompt || "",
       base_url: agent.base_url || "",
+      avatar_url: agent.avatar_url || defaultPuppy,
     });
     setError(null);
   };
@@ -147,6 +152,7 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
       if (form.system_prompt?.trim())
         payload.system_prompt = form.system_prompt.trim();
       if (form.base_url?.trim()) payload.base_url = form.base_url.trim();
+      if (form.avatar_url) payload.avatar_url = form.avatar_url;
 
       if (isNew) {
         await axios.post("/api/agents", payload);
@@ -191,8 +197,20 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose}>
       <Modal.Container width="w-[720px]">
         <Modal.Header
-          title="Puppy Agents"
-          icon={<Dog className="w-4 h-4 text-rose-500" />}
+          title={
+            <div className="flex items-center gap-4">
+              <div className="flex -space-x-3">
+                <PuppyImage size="lg" className="border-2 border-white shadow-md" />
+                <PuppyImage size="lg" className="border-2 border-white shadow-md" src={puppyImages.corgi} />
+                <PuppyImage size="lg" className="border-2 border-white shadow-md" src={puppyImages.husky} />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg text-stone-800">Puppy Agents</span>
+                <span className="text-[10px] text-stone-500">Configure your AI assistants</span>
+              </div>
+            </div>
+          }
+          icon={null}
           onClose={onClose}
           closeTestId="agent-modal-close"
         />
@@ -232,14 +250,23 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                         : "bg-transparent border-transparent hover:bg-white hover:border-rose-100"
                     }`}
                   >
-                    <div className="font-semibold text-xs text-stone-800 truncate">
-                      {agent.name}
-                    </div>
-                    <div className="text-[10px] text-stone-500 mt-1 truncate">
-                      {providerLabel}
-                    </div>
-                    <div className="text-[10px] font-mono text-stone-400 truncate mt-0.5">
-                      {agent.model_id}
+                    <div className="flex items-center gap-2">
+                      <PuppyImage
+                        src={agent.avatar_url}
+                        size="lg"
+                        className="border border-rose-200"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-xs text-stone-800 truncate">
+                          {agent.name}
+                        </div>
+                        <div className="text-[10px] text-stone-500 mt-0.5 truncate">
+                          {providerLabel}
+                        </div>
+                        <div className="text-[10px] font-mono text-stone-400 truncate">
+                          {agent.model_id}
+                        </div>
+                      </div>
                     </div>
                   </button>
                 );
@@ -375,6 +402,22 @@ export const AgentLibraryModal: React.FC<AgentLibraryModalProps> = ({
                       }
                       className="h-28"
                       placeholder="Optional: override the default system persona for this agent..."
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>Avatar</Label>
+                    <div className="flex items-center gap-3">
+                      <PuppyImage
+                        src={form.avatar_url}
+                        size="xl"
+                        className="border-2 border-rose-200 shadow-md"
+                      />
+                      <span className="text-xs text-stone-500">Choose a cute puppy for this agent</span>
+                    </div>
+                    <PuppyImageSelector
+                      selectedImage={form.avatar_url}
+                      onSelect={(url) => setForm((f) => ({ ...f, avatar_url: url }))}
                     />
                   </div>
 

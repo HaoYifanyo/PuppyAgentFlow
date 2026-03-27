@@ -24,7 +24,7 @@ export const useWorkflowState = () => {
   }, []);
 
   const handleSaveNodeConfig = useCallback(
-    (nodeId: string, updatedData: Partial<WorkflowNode>) => {
+    (nodeId: string, updatedData: Partial<WorkflowNode>, agentAvatarUrl?: string) => {
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id === nodeId) {
@@ -33,6 +33,7 @@ export const useWorkflowState = () => {
               data: {
                 ...n.data,
                 node: { ...n.data.node, ...updatedData },
+                agentAvatarUrl,
               },
             };
           }

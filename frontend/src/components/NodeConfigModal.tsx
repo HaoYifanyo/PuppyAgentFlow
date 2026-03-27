@@ -20,7 +20,7 @@ interface WorkflowNode {
 interface NodeConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (nodeId: string, updatedData: Partial<WorkflowNode>) => void;
+  onSave: (nodeId: string, updatedData: Partial<WorkflowNode>, agentAvatarUrl?: string) => void;
   onDelete: (nodeId: string) => void;
   node: WorkflowNode | null;
   agents?: Agent[];
@@ -92,7 +92,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       agent_id: agentId || undefined,
     };
 
-    onSave(node.id, updatedData);
+    onSave(node.id, updatedData, selectedAgent?.avatar_url);
   };
 
   const handleDelete = () => {

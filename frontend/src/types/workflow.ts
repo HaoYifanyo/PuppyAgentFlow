@@ -21,6 +21,7 @@ export interface Agent {
   api_key?: string;
   system_prompt?: string;
   base_url?: string;
+  avatar_url?: string;
 }
 
 export interface WorkflowNode {

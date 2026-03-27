@@ -13,14 +13,16 @@ import {
 } from "lucide-react";
 import type { WorkflowNode, NodeRunData } from "../../types/workflow";
 import { NodeDataModal } from "../NodeDataModal";
+import { PuppyImage } from "../PuppyImage";
 
 const PuppyNode = ({ data }: NodeProps) => {
-  const { node, runData, globalRunStatus, onResume, onEditClick } = data as {
+  const { node, runData, globalRunStatus, onResume, onEditClick, agentAvatarUrl } = data as {
     node: WorkflowNode;
     runData?: NodeRunData;
     globalRunStatus?: string;
     onResume: (nodeId: string, action: string, modifiedOutputs?: any) => void;
     onEditClick: (node: WorkflowNode) => void;
+    agentAvatarUrl?: string;
   };
 
   const status = runData?.status || "pending";
@@ -104,7 +106,8 @@ const PuppyNode = ({ data }: NodeProps) => {
         <div className="flex justify-between items-center mb-2 gap-4 relative group">
           <div>
             <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
-              🐶 {node.name}
+              <PuppyImage size="md" className="mr-1" src={agentAvatarUrl} />
+              {node.name}
               {isBatchMode && (
                 <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
                   <Layers className="w-2.5 h-2.5" />

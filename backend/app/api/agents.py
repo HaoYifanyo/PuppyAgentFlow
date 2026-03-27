@@ -16,6 +16,7 @@ class AgentCreate(BaseModel):
     api_key: Optional[str] = None
     system_prompt: Optional[str] = None
     base_url: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 class AgentUpdate(BaseModel):
     name: Optional[str] = None
@@ -24,6 +25,7 @@ class AgentUpdate(BaseModel):
     api_key: Optional[str] = None
     system_prompt: Optional[str] = None
     base_url: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 @router.get("", response_model=List[Agent], response_model_exclude={"api_key_encrypted"})
@@ -42,6 +44,7 @@ async def create_agent(agent_data: AgentCreate):
         api_key_encrypted=api_key_encrypted,
         system_prompt=agent_data.system_prompt,
         base_url=agent_data.base_url,
+        avatar_url=agent_data.avatar_url,
     )
     await agent.insert()
     return agent
@@ -55,7 +58,7 @@ async def update_agent(id: PydanticObjectId, agent_data: AgentUpdate):
 
     update_dict = agent_data.model_dump(exclude_unset=True)
 
-    for field in ("name", "provider", "model_id", "system_prompt", "base_url"):
+    for field in ("name", "provider", "model_id", "system_prompt", "base_url", "avatar_url"):
         if field in update_dict:
             setattr(agent, field, update_dict[field])
 
