@@ -13,10 +13,14 @@ from app.models.workflow import WorkflowRun, WorkflowStatus
 logger = logging.getLogger(__name__)
 
 
-def _build_node_inputs(context: dict, skill_model) -> dict:
+def _build_node_inputs(context: dict, skill_model, static_inputs: dict = None) -> dict:
     """
     Map the current context (previous node's output) to this skill's input_schema keys.
-    For unmatched schema keys, try positional mapping from unmatched context values.
+
+    Resolution order:
+    1. context keys that directly match the schema (dynamic, from upstream)
+    2. static_inputs from node.config for schema keys still missing (user-configured)
+    3. positional fallback: remaining unmatched context values fill remaining schema keys
     """
     inputs = dict(context)
 
@@ -24,7 +28,14 @@ def _build_node_inputs(context: dict, skill_model) -> dict:
     if not input_schema:
         return inputs
 
-    unmatched_schema_keys = [k for k in input_schema if k not in context]
+    # Fill missing schema keys from static_inputs (node.config)
+    if static_inputs:
+        for key in input_schema:
+            if key not in inputs and key in static_inputs:
+                inputs[key] = static_inputs[key]
+
+    # Positional fallback for any still-missing schema keys
+    unmatched_schema_keys = [k for k in input_schema if k not in inputs]
     unmatched_context_values = [v for k, v in context.items() if k not in input_schema]
 
     for i, schema_key in enumerate(unmatched_schema_keys):
@@ -90,7 +101,7 @@ def make_langgraph_node(node_model, skill_model):
                         "node_outputs": {},
                     }
 
-        node_inputs = _build_node_inputs(state.get("context", {}), skill_model)
+        node_inputs = _build_node_inputs(state.get("context", {}), skill_model, static_inputs=node_model.config)
 
         try:
             if skill_model.type == "llm":
@@ -182,11 +193,16 @@ def make_batch_worker(node_model, skill_model):
         # Build inputs using skill's input_schema
         input_schema = getattr(skill_model, 'input_schema', {}) or {}
         if input_schema:
-            # Use the first key from input_schema as the parameter name
             first_key = next(iter(input_schema.keys()))
             node_inputs = {first_key: item}
         else:
             node_inputs = {"input": item}
+
+        # Merge static inputs from node.config for schema keys not already set
+        static_inputs = node_model.config or {}
+        for key in (input_schema or {}):
+            if key not in node_inputs and key in static_inputs:
+                node_inputs[key] = static_inputs[key]
 
         worker_id = f"{node_model.id}__worker"
         try:

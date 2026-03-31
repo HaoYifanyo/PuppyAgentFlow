@@ -25,6 +25,7 @@ interface NodeConfigModalProps {
   node: WorkflowNode | null;
   agents?: Agent[];
   skillType?: string;
+  inputSchema?: Record<string, any>;
 }
 
 export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
@@ -35,13 +36,17 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   node,
   agents = [],
   skillType,
+  inputSchema,
 }) => {
   const [name, setName] = useState('');
   const [requireApproval, setRequireApproval] = useState(false);
   const [batchMode, setBatchMode] = useState(false);
   const [configStr, setConfigStr] = useState('');
+  const [staticInputs, setStaticInputs] = useState<Record<string, string>>({});
   const [agentId, setAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  const isToolNode = skillType === 'tool' && !node?.is_start_node;
 
   useEffect(() => {
     if (isOpen && node) {
@@ -53,6 +58,13 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       if (node.is_start_node) {
         const manualText = node.config?.manual_input_text || '';
         setConfigStr(manualText);
+      } else if (isToolNode && inputSchema) {
+        // For tool nodes, load existing config values into per-field state
+        const existing: Record<string, string> = {};
+        Object.keys(inputSchema).forEach(key => {
+          existing[key] = node.config?.[key] != null ? String(node.config[key]) : '';
+        });
+        setStaticInputs(existing);
       } else {
         setConfigStr(node.config ? JSON.stringify(node.config, null, 2) : '{}');
       }
@@ -73,6 +85,15 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
         trigger_type: 'manual',
         manual_input_text: configStr,
       };
+    } else if (isToolNode && inputSchema) {
+      // Save only non-empty static input values
+      const filled: Record<string, string> = {};
+      Object.keys(inputSchema).forEach(key => {
+        if (staticInputs[key]?.trim()) {
+          filled[key] = staticInputs[key].trim();
+        }
+      });
+      parsedConfig = filled;
     } else {
       try {
         if (configStr.trim() !== '') {
@@ -240,6 +261,26 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
                 className="h-32"
                 placeholder="Enter the initial prompt or data here..."
               />
+            </div>
+          ) : isToolNode && inputSchema ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Input Parameters</Label>
+                <p className="text-[10px] text-stone-500 mt-0.5">
+                  Fill in values you want to fix for this node. Leave empty to receive the value automatically from the previous node.
+                </p>
+              </div>
+              {Object.keys(inputSchema).map(key => (
+                <div key={key} className="space-y-1">
+                  <label className="text-xs font-medium text-stone-700 font-mono">{key}</label>
+                  <Input
+                    type="text"
+                    value={staticInputs[key] || ''}
+                    onChange={(e) => setStaticInputs({ ...staticInputs, [key]: e.target.value })}
+                    placeholder="auto from upstream"
+                  />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="space-y-1">
