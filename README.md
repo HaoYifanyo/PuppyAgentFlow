@@ -8,6 +8,22 @@ PuppyAgentFlow is a demo-stage **AI agent workflow system** that aims to:
 
 ---
 
+## Demo
+
+### Create Agent
+
+![Create Agent](./docs/gif/create_agent.gif)
+
+### Easy Drag and Drop
+
+![Easy Drag and Drop](./docs/gif/easy_drag_drop.gif)
+
+### Run Workflow
+
+![Run Workflow](./docs/gif/test_run.gif)
+
+---
+
 ## Architecture
 
 ![PuppyAgentFlow Architecture](./docs/architecture.png)
