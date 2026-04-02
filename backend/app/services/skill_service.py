@@ -73,7 +73,17 @@ class SkillFileService:
                 except json.JSONDecodeError:
                     # If not JSON, treat as prompt template
                     implementation = {"prompt_template": impl_text}
-            
+
+            # Auto-load execute.py for python_eval skills that have no embedded code
+            if implementation.get("executor") == "python_eval":
+                config = implementation.setdefault("config", {})
+                if not config.get("code"):
+                    skill_dir = os.path.dirname(path)
+                    py_path = os.path.join(skill_dir, "execute.py")
+                    if os.path.exists(py_path):
+                        with open(py_path, "r", encoding="utf-8") as pf:
+                            config["code"] = pf.read()
+
             return {
                 "name": frontmatter.get('name', ''),
                 "type": skill_type,
@@ -113,18 +123,22 @@ class SkillFileService:
 
         yaml_str = yaml.dump(frontmatter, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
-        # Extract implementation text
+        # Extract implementation text; for python_eval, write code to execute.py
         impl_text = ""
         if isinstance(skill.implementation, dict):
             if skill.type == "llm":
                 impl_text = skill.implementation.get("prompt_template", "")
+            elif skill.implementation.get("executor") == "python_eval":
+                code = skill.implementation.get("config", {}).get("code", "")
+                if code:
+                    py_path = os.path.join(os.path.dirname(path), "execute.py")
+                    with open(py_path, "w", encoding="utf-8") as pf:
+                        pf.write(code)
+                impl_text = json.dumps({"executor": "python_eval"}, ensure_ascii=False)
             else:
-                # for tool nodes, the execution logic might still reside in DB or a python script.
-                # For now, we'll store the config dict.
-                import json
                 impl_text = json.dumps(skill.implementation, indent=2, ensure_ascii=False)
         else:
-             impl_text = str(skill.implementation)
+            impl_text = str(skill.implementation)
 
         # Build file content
         file_content = f"---\n{yaml_str}---\n\n# Implementation\n{impl_text}\n"
