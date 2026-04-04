@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
 import {
@@ -10,6 +10,7 @@ import {
   Settings,
   Layers,
   Maximize2,
+  Copy,
 } from "lucide-react";
 import type { WorkflowNode, NodeRunData } from "../../types/workflow";
 import { NodeDataModal } from "../NodeDataModal";
@@ -86,6 +87,13 @@ const PuppyNode = ({ data }: NodeProps) => {
     }
   };
 
+  const outputsRef = useRef<HTMLPreElement>(null);
+  useEffect(() => {
+    if (outputsRef.current) {
+      outputsRef.current.scrollTop = outputsRef.current.scrollHeight;
+    }
+  }, [runData?.outputs]);
+
   const isBatchMode = node.batch_mode === true;
   const borderClass = isBatchMode ? "border-rose-500" : conf.border;
   const bgClass = isBatchMode ? "bg-rose-50/30" : "bg-white";
@@ -143,7 +151,15 @@ const PuppyNode = ({ data }: NodeProps) => {
         {/* Body / Data view */}
         <div className={`text-xs text-gray-600 space-y-2 w-full px-3 ${hasRunData ? "pb-3" : ""}`}>
           {runData?.error_msg && (
-            <div className="text-red-600 bg-red-50 p-2 rounded text-[10px] font-mono whitespace-pre-wrap break-words max-w-full">
+            <div className="relative group/error text-red-600 bg-red-50 p-2 rounded text-[10px] font-mono whitespace-pre-wrap break-words max-w-full">
+              <button
+                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(runData.error_msg!); }}
+                className="absolute top-1 right-1 p-0.5 rounded text-red-300 hover:text-red-600 opacity-0 group-hover/error:opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-red-400"
+                aria-label="Copy error message"
+                title="Copy"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
               {runData.error_msg}
             </div>
           )}
@@ -172,7 +188,7 @@ const PuppyNode = ({ data }: NodeProps) => {
                 <span className="font-semibold">Outputs:</span>
                 <Maximize2 className="w-3 h-3 text-gray-400 group-hover/output:text-rose-500 transition-colors" />
               </div>
-              <pre className="bg-green-50 p-2 rounded text-[10px] overflow-auto max-h-32 border border-green-100 max-w-full whitespace-pre-wrap break-words group-hover/output:border-green-300 transition-colors">
+              <pre ref={outputsRef} className="bg-green-50 p-2 rounded text-[10px] overflow-auto max-h-32 border border-green-100 max-w-full whitespace-pre-wrap break-words group-hover/output:border-green-300 transition-colors">
                 {JSON.stringify(runData.outputs, null, 2)}
               </pre>
             </button>
