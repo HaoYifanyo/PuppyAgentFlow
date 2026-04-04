@@ -39,6 +39,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ skills, loading, fetchSkills }
   const onDragStart = (event: React.DragEvent, skill: Skill) => {
     const skillData = JSON.stringify(skill);
     event.dataTransfer.setData('application/reactflow/skill', skillData);
+    event.dataTransfer.setData('application/reactflow/offset-x', String(event.nativeEvent.offsetX));
+    event.dataTransfer.setData('application/reactflow/offset-y', String(event.nativeEvent.offsetY));
     event.dataTransfer.effectAllowed = 'move';
   };
 

@@ -89,11 +89,13 @@ const PuppyNode = ({ data }: NodeProps) => {
   const isBatchMode = node.batch_mode === true;
   const borderClass = isBatchMode ? "border-rose-500" : conf.border;
   const bgClass = isBatchMode ? "bg-rose-50/30" : "bg-white";
+  const hasRunData = !!(runData?.inputs || runData?.outputs || runData?.error_msg);
 
   return (
     <>
       <div
-        className={`px-4 py-3 shadow-md rounded-xl ${bgClass} border-2 ${borderClass} min-w-[250px] transition-all`}
+        className={`shadow-md rounded-xl ${bgClass} border-2 ${borderClass} transition-colors transition-shadow`}
+        style={{ width: hasRunData ? 260 : 140 }}
       >
         <Handle
           type="target"
@@ -103,44 +105,45 @@ const PuppyNode = ({ data }: NodeProps) => {
         />
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-2 gap-4 relative group">
-          <div>
-            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-1">
-              <PuppyImage size="md" className="mr-1" src={agentAvatarUrl} />
-              {node.name}
-              {isBatchMode && (
-                <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
-                  <Layers className="w-2.5 h-2.5" />
-                  Batch
-                </span>
-              )}
-            </h3>
-          </div>
-          <div
-            className={`flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${conf.bg} ${conf.text}`}
-          >
-            {conf.icon} {status.toUpperCase()}
-          </div>
-
-          {/* Edit settings icon - visible on hover */}
+        <div className="relative px-3 pt-3 pb-3 flex flex-col items-center text-center">
           {(status === "pending" || status === "completed") && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEditClick(node);
               }}
-              className="absolute -right-2 -top-2 p-1.5 bg-white border border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all z-10"
+              className="absolute right-1.5 top-1.5 p-1 text-gray-300 hover:text-blue-500 transition-colors rounded focus-visible:ring-2 focus-visible:ring-blue-400"
               title="Node Settings"
+              aria-label="Node Settings"
             >
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-3 h-3" />
             </button>
           )}
+
+          <PuppyImage size="md" src={agentAvatarUrl} className="mb-1.5" />
+
+          <div className="flex items-center justify-center gap-1 w-full">
+            <h3 className="text-xs font-bold text-gray-800 leading-snug break-words">
+              {node.name}
+            </h3>
+            {isBatchMode && (
+              <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium px-1 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                <Layers className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </div>
+
+          <div
+            className={`mt-1.5 inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full ${conf.bg} ${conf.text}`}
+          >
+            {conf.icon} {status.toUpperCase()}
+          </div>
         </div>
 
         {/* Body / Data view */}
-        <div className="text-xs text-gray-600 space-y-2 w-full">
+        <div className={`text-xs text-gray-600 space-y-2 w-full px-3 ${hasRunData ? "pb-3" : ""}`}>
           {runData?.error_msg && (
-            <div className="text-red-600 bg-red-50 p-2 rounded text-[10px] font-mono whitespace-pre-wrap break-words max-w-[250px]">
+            <div className="text-red-600 bg-red-50 p-2 rounded text-[10px] font-mono whitespace-pre-wrap break-words max-w-full">
               {runData.error_msg}
             </div>
           )}
@@ -150,28 +153,29 @@ const PuppyNode = ({ data }: NodeProps) => {
               <div className="flex justify-between items-center mb-1">
                 <span className="font-semibold">Inputs:</span>
               </div>
-              <pre className="bg-gray-100 p-2 rounded text-[10px] overflow-auto max-h-24 max-w-[250px] whitespace-pre-wrap break-words">
+              <pre className="bg-gray-100 p-2 rounded text-[10px] overflow-auto max-h-24 max-w-full whitespace-pre-wrap break-words">
                 {JSON.stringify(runData.inputs, null, 2)}
               </pre>
             </div>
           )}
 
           {runData?.outputs && !editMode && (
-            <div
-              className="flex flex-col cursor-pointer group/output"
+            <button
+              className="flex flex-col text-left w-full cursor-pointer group/output focus-visible:ring-2 focus-visible:ring-rose-400 rounded"
               onClick={(e) => {
                 e.stopPropagation();
                 setShowDataModal(true);
               }}
+              aria-label="View outputs"
             >
               <div className="flex justify-between items-center mb-1">
                 <span className="font-semibold">Outputs:</span>
                 <Maximize2 className="w-3 h-3 text-gray-400 group-hover/output:text-rose-500 transition-colors" />
               </div>
-              <pre className="bg-green-50 p-2 rounded text-[10px] overflow-auto max-h-32 border border-green-100 max-w-[250px] whitespace-pre-wrap break-words group-hover/output:border-green-300 transition-colors">
+              <pre className="bg-green-50 p-2 rounded text-[10px] overflow-auto max-h-32 border border-green-100 max-w-full whitespace-pre-wrap break-words group-hover/output:border-green-300 transition-colors">
                 {JSON.stringify(runData.outputs, null, 2)}
               </pre>
-            </div>
+            </button>
           )}
 
           {/* Human-in-the-Loop Interventions */}
@@ -203,19 +207,19 @@ const PuppyNode = ({ data }: NodeProps) => {
                 <div className="flex gap-2 justify-center">
                   <button
                     onClick={handleApprove}
-                    className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                    className="flex items-center gap-1 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-green-400"
                   >
                     <Check className="w-3 h-3" /> Approve
                   </button>
                   <button
                     onClick={() => setEditMode(true)}
-                    className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                    className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-400"
                   >
                     <Edit3 className="w-3 h-3" /> Edit
                   </button>
                   <button
                     onClick={handleReject}
-                    className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer"
+                    className="flex items-center gap-1 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded shadow text-xs font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-red-400"
                   >
                     <X className="w-3 h-3" /> Reject
                   </button>

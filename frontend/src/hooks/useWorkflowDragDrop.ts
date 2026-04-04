@@ -28,9 +28,11 @@ export const useWorkflowDragDrop = (
       }
 
       const skillData = JSON.parse(type);
+      const offsetX = parseFloat(event.dataTransfer.getData('application/reactflow/offset-x') || '0');
+      const offsetY = parseFloat(event.dataTransfer.getData('application/reactflow/offset-y') || '0');
       const position = reactFlowInstance.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
+        x: event.clientX - offsetX,
+        y: event.clientY - offsetY,
       });
 
       const newNodeId = `node_${Date.now()}`;
