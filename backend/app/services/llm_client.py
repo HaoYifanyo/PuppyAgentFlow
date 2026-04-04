@@ -110,8 +110,12 @@ class LLMClient:
                 text = text.strip()
                 try:
                     return json.loads(text)
-                except json.JSONDecodeError as e:
-                    raise ValueError(f"LLM did not return valid JSON. Raw output: {text}") from e
+                except json.JSONDecodeError:
+                    try:
+                        from json_repair import repair_json
+                        return json.loads(repair_json(text))
+                    except Exception as e:
+                        raise ValueError(f"LLM did not return valid JSON. Raw output: {text}") from e
             else:
                 return text
 

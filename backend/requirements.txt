@@ -13,3 +13,4 @@ langchain-anthropic>=1.0.0
 langchain-google-genai>=3.0.0
 cryptography
 browser-use>=0.1.0
+json-repair>=0.30.0
