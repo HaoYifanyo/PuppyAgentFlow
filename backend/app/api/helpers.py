@@ -14,7 +14,7 @@ async def build_graph_for_workflow(workflow: Workflow):
     skill_ids = []
     node_skill_id_map: dict[str, str] = {}  # node.id -> skill_id string
     for node in workflow.nodes:
-        if node.skill_id and not node.is_start_node:
+        if node.skill_id and node.node_type == "normal":
             try:
                 oid = PydanticObjectId(node.skill_id)
                 skill_ids.append(oid)

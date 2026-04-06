@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Loader2, Sparkles, PlayCircle, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, Sparkles, PlayCircle, Pencil, Trash2, GitBranch } from 'lucide-react';
 import { CreateSkillModal } from './CreateSkillModal';
 import { EditSkillModal } from './EditSkillModal';
 import { extractId } from '../utils/id';
@@ -83,6 +83,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ skills, loading, fetchSkills }
           </div>
           <div className="text-[10px] text-stone-500 leading-relaxed mt-1.5">
             Required entry point for all workflows.
+          </div>
+        </div>
+
+        <div
+          className="p-3 bg-white border border-amber-200 rounded-2xl cursor-grab hover:border-amber-400 hover:shadow-md hover:shadow-amber-900/5 transition-all duration-200 group active:cursor-grabbing"
+          onDragStart={(event) => onDragStart(event, {
+            name: "Condition",
+            type: "system",
+            description: "If/Else branch based on upstream output.",
+            implementation: "condition-node"
+          } as any)}
+          draggable
+        >
+          <div className="flex justify-between items-start mb-1">
+            <div className="font-bold text-xs text-stone-800 flex items-center gap-1.5">
+              <GitBranch className="w-4 h-4 text-amber-500" /> Condition
+            </div>
+            <div className="bg-amber-50 text-amber-600 text-[9px] px-2 py-0.5 rounded-full font-mono uppercase font-bold border border-amber-100 tracking-wider">
+              SYSTEM
+            </div>
+          </div>
+          <div className="text-[10px] text-stone-500 leading-relaxed mt-1.5">
+            If/Else routing based on a field value.
           </div>
         </div>
 

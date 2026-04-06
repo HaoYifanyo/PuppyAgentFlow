@@ -19,10 +19,10 @@ export const saveWorkflowApi = async (
       nodes: nodes.map((n) => ({
         id: n.id,
         name: n.data?.node?.name || n.id,
-        skill_id: n.data?.node?.skill_id,
+        node_type: n.data?.node?.node_type || (n.data?.node?.is_start_node ? "start" : "normal"),
+        skill_id: n.data?.node?.skill_id || null,
         agent_id: n.data?.node?.agent_id,
         require_approval: n.data?.node?.require_approval ?? false,
-        is_start_node: n.data?.node?.is_start_node ?? false,
         batch_mode: n.data?.node?.batch_mode ?? false,
         position: n.position,
         config: n.data?.node?.config || {},
@@ -33,6 +33,7 @@ export const saveWorkflowApi = async (
         source: e.source,
         target: e.target,
         data_mapping: e.data_mapping || { "*": "*" },
+        condition_label: e.data?.condition_label || null,
       })),
     };
 

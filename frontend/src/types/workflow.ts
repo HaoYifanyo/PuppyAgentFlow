@@ -24,13 +24,16 @@ export interface Agent {
   avatar_url?: string;
 }
 
+export type NodeType = "start" | "condition" | "normal";
+
 export interface WorkflowNode {
   id: string;
   name: string;
-  skill_id: string;
+  node_type: NodeType;
+  skill_id?: string;
   agent_id?: string;
   require_approval: boolean;
-  is_start_node?: boolean;
+  is_start_node?: boolean; // deprecated, kept for backward compat
   batch_mode?: boolean;
   position?: { x: number; y: number };
   input_schema?: Record<string, any>;

@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from beanie import Document, before_event, Replace, Insert
 
 def get_utc_now():
@@ -69,18 +69,27 @@ class Agent(Document):
 class Node(BaseModel):
     id: str
     name: str
-    skill_id: str
+    node_type: str = "normal"  # "start" | "condition" | "normal"
+    skill_id: Optional[str] = None
     agent_id: Optional[str] = None
     require_approval: bool = False
-    is_start_node: bool = False
+    is_start_node: bool = False  # DEPRECATED: kept for backward compat
     batch_mode: bool = False
     position: Optional[Dict[str, float]] = None
-    config: Dict[str, Any] = {} # For prompt instructions and schema definitions
+    config: Dict[str, Any] = {}
+
+    @model_validator(mode='after')
+    def migrate_start_node(self):
+        """Auto-migrate is_start_node to node_type for backward compat."""
+        if self.is_start_node and self.node_type == "normal":
+            self.node_type = "start"
+        return self
 
 class Edge(BaseModel):
     source: str
     target: str
-    data_mapping: Dict[str, str] = {} # e.g. {"target_input_key": "source_output_key"}
+    data_mapping: Dict[str, str] = {}
+    condition_label: Optional[str] = None  # "true" | "false" | None
 
 class Workflow(Document):
     name: str
@@ -92,7 +101,7 @@ class Workflow(Document):
     @field_validator('nodes')
     @classmethod
     def validate_start_node(cls, v):
-        start_nodes = [n for n in v if n.is_start_node]
+        start_nodes = [n for n in v if n.node_type == "start"]
         if len(start_nodes) != 1:
             raise ValueError("Workflow must have exactly one start node")
         return v

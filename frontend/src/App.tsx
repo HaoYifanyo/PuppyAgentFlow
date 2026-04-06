@@ -13,13 +13,14 @@ import { ErrorToast } from './components/ErrorToast';
 import type { NodeRunData, Agent } from './types/workflow';
 import PuppyNode from './components/nodes/PuppyNode';
 import StartNode from './components/nodes/StartNode';
+import IfElseNode from './components/nodes/IfElseNode';
 
 import { useWorkflowState } from './hooks/useWorkflowState';
 import { useWorkflowRun } from './hooks/useWorkflowRun';
 import { useWorkflowDragDrop } from './hooks/useWorkflowDragDrop';
 import { extractId } from './utils/id';
 
-const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode };
+const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode, ifElseNode: IfElseNode };
 
 function App() {
   const [runHistoryOpen, setRunHistoryOpen] = useState(false);

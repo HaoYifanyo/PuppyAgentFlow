@@ -48,7 +48,7 @@ export const useWorkflowState = () => {
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
       const nodeToDelete = nodes.find((n) => n.id === nodeId);
-      if (nodeToDelete?.data?.node?.is_start_node) {
+      if (nodeToDelete?.data?.node?.node_type === "start" || nodeToDelete?.data?.node?.is_start_node) {
         alert("The Start Node cannot be deleted.");
         return;
       }
@@ -67,34 +67,56 @@ export const useWorkflowState = () => {
       setWorkflowId(extractId(wf._id || wf.id));
       setWorkflowName(wf.name);
 
+      const getReactFlowType = (n: any) => {
+        const nodeType = n.node_type || (n.is_start_node ? "start" : "normal");
+        if (nodeType === "start") return "startNode";
+        if (nodeType === "condition") return "ifElseNode";
+        return "puppyNode";
+      };
+
+      const getNodeData = (n: any) => {
+        const nodeType = n.node_type || (n.is_start_node ? "start" : "normal");
+        if (nodeType === "start") {
+          return {
+            label: n.name,
+            node: { ...n, node_type: "start" },
+            onEditClick: handleEditNodeClick,
+            globalRunStatus: "idle",
+          };
+        }
+        return {
+          node: { ...n, node_type: nodeType },
+          runData: undefined,
+          onResume: nodeType === "condition" ? undefined : handleResume,
+          onEditClick: handleEditNodeClick,
+          globalRunStatus: "idle",
+        };
+      };
+
       const loadedNodes = wf.nodes.map((n: any, idx: number) => ({
         id: n.id,
-        type: n.is_start_node ? "startNode" : "puppyNode",
-        position: n.position || { x: 100 + idx * 300, y: 150 }, // Use saved position or default to simple layout
-        data: n.is_start_node
-          ? {
-              label: n.name,
-              node: n,
-              onEditClick: handleEditNodeClick,
-              globalRunStatus: "idle",
-            }
-          : {
-              node: n,
-              runData: undefined,
-              onResume: handleResume,
-              onEditClick: handleEditNodeClick,
-              globalRunStatus: "idle",
-            },
+        type: getReactFlowType(n),
+        position: n.position || { x: 100 + idx * 300, y: 150 },
+        data: getNodeData(n),
       }));
 
-      const loadedEdges = wf.edges.map((e: any, idx: number) => ({
-        id: `e-${idx}`,
-        source: e.source,
-        target: e.target,
-        data_mapping: (e as any).data_mapping,
-        animated: false,
-        markerEnd: { type: MarkerType.ArrowClosed },
-      }));
+      const loadedEdges = wf.edges.map((e: any, idx: number) => {
+        const conditionLabel = e.condition_label || null;
+        return {
+          id: `e-${idx}`,
+          source: e.source,
+          target: e.target,
+          data_mapping: (e as any).data_mapping,
+          data: { condition_label: conditionLabel },
+          animated: false,
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: conditionLabel === "true" ? { stroke: '#22c55e' } :
+                 conditionLabel === "false" ? { stroke: '#ef4444' } : undefined,
+          label: conditionLabel === "true" ? "True" :
+                 conditionLabel === "false" ? "False" : undefined,
+          labelStyle: conditionLabel ? { fill: conditionLabel === "true" ? '#22c55e' : '#ef4444', fontWeight: 700, fontSize: 10 } : undefined,
+        };
+      });
 
       setNodes(loadedNodes);
       setEdges(loadedEdges);

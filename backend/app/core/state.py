@@ -29,3 +29,5 @@ class WorkflowState(TypedDict):
     error: str
     # Batch execution: collector for parallel worker results (reducer appends)
     batch_collector: Annotated[list[dict[str, Any]], operator.add]
+    # Condition routing result (used internally by condition nodes)
+    __condition_result__: bool

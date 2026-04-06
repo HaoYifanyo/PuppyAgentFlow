@@ -59,7 +59,7 @@ async def _prepare_run(workflow: Workflow, inputs: Dict[str, Any]):
     graph = await build_graph_for_workflow(workflow)
     config = {"configurable": {"thread_id": run_id}}
 
-    start_node = next((n for n in workflow.nodes if getattr(n, "is_start_node", False)), None)
+    start_node = next((n for n in workflow.nodes if n.node_type == "start"), None)
     initial_context = {}
     if start_node and hasattr(start_node, "config"):
         initial_context["manual_input_text"] = start_node.config.get("manual_input_text", "")

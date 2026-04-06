@@ -19,7 +19,7 @@ interface NodeRunDetail {
 
 interface RunDetail {
   node_runs: Record<string, NodeRunDetail>;
-  workflow: { nodes: { id: string; name: string; is_start_node?: boolean }[] };
+  workflow: { nodes: { id: string; name: string; node_type?: string; is_start_node?: boolean }[] };
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -135,7 +135,7 @@ export const RunHistoryModal = ({ isOpen, onClose, workflowId }: RunHistoryModal
               </div>
             ) : runDetail ? (
               <div className="space-y-4">
-                {nodes.filter(n => !n.is_start_node).map(node => {
+                {nodes.filter(n => n.node_type !== "start" && !n.is_start_node).map(node => {
                   const nr = nodeRuns[node.id];
                   const sc = statusConfig[nr?.status ?? "pending"] ?? statusConfig.pending;
                   return (

@@ -9,7 +9,8 @@ import { extractId } from '../utils/id';
 interface WorkflowNode {
   id: string;
   name: string;
-  skill_id: string;
+  node_type?: string;
+  skill_id?: string;
   agent_id?: string;
   require_approval: boolean;
   is_start_node?: boolean;
@@ -45,8 +46,11 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   const [staticInputs, setStaticInputs] = useState<Record<string, string>>({});
   const [agentId, setAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [conditionField, setConditionField] = useState('result');
 
-  const isToolNode = skillType === 'tool' && !node?.is_start_node;
+  const isConditionNode = node?.node_type === "condition";
+  const isStartNode = node?.node_type === "start" || node?.is_start_node;
+  const isToolNode = skillType === 'tool' && !isStartNode && !isConditionNode;
 
   useEffect(() => {
     if (isOpen && node) {
@@ -55,9 +59,11 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       setBatchMode(node.batch_mode || false);
       setAgentId(node.agent_id || '');
 
-      if (node.is_start_node) {
+      if (isStartNode) {
         const manualText = node.config?.manual_input_text || '';
         setConfigStr(manualText);
+      } else if (isConditionNode) {
+        setConditionField(node.config?.condition_field || 'result');
       } else if (isToolNode && inputSchema) {
         // For tool nodes, load existing config values into per-field state
         const existing: Record<string, string> = {};
@@ -80,11 +86,13 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
     setError(null);
     let parsedConfig = {};
 
-    if (node.is_start_node) {
+    if (isStartNode) {
       parsedConfig = {
         trigger_type: 'manual',
         manual_input_text: configStr,
       };
+    } else if (isConditionNode) {
+      parsedConfig = { condition_field: conditionField.trim() || 'result' };
     } else if (isToolNode && inputSchema) {
       // Save only non-empty static input values
       const filled: Record<string, string> = {};
@@ -117,7 +125,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   };
 
   const handleDelete = () => {
-    if (node.is_start_node) {
+    if (isStartNode) {
       alert('The Start Node cannot be deleted.');
       return;
     }
@@ -142,7 +150,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
         />
 
         {/* Tab Header (Only for Start Node) */}
-        {node.is_start_node && (
+        {isStartNode && (
           <div className="flex border-b border-rose-100 px-4 pt-2 bg-stone-50/50">
             <button className="px-4 py-2 text-sm font-semibold text-rose-500 border-b-2 border-rose-500">
               Manual Run
@@ -169,7 +177,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
           </div>
 
           {/* Puppy Agent Selector — for LLM and Browser Use nodes */}
-          {!node.is_start_node && needsAgent && (
+          {!isStartNode && !isConditionNode && needsAgent && (
             <div className="space-y-1">
               <Label className="flex items-center gap-1.5">
                 <Dog className="w-3.5 h-3.5 text-rose-400" /> Puppy Agent
@@ -208,7 +216,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
           )}
 
           {/* Require Approval Switch */}
-          {!node.is_start_node && (
+          {!isStartNode && !isConditionNode && (
             <div className="flex items-center justify-between p-3 bg-white border border-rose-100 rounded-xl shadow-sm shadow-rose-900/5">
               <div>
                 <div className="text-sm font-semibold text-stone-800">Require Approval</div>
@@ -227,7 +235,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
           )}
 
           {/* Batch Mode Switch */}
-          {!node.is_start_node && (
+          {!isStartNode && !isConditionNode && (
             <div className="flex items-center justify-between p-3 bg-white border border-rose-100 rounded-xl shadow-sm shadow-rose-900/5">
               <div className="flex items-center gap-2">
                 <Layers className="w-4 h-4 text-rose-400" />
@@ -249,7 +257,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
           )}
 
           {/* Config Field */}
-          {node.is_start_node ? (
+          {isStartNode ? (
             <div className="space-y-1">
               <Label>Default Input Text</Label>
               <p className="text-[10px] text-stone-500 mb-2">
@@ -260,6 +268,19 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
                 onChange={(e) => setConfigStr(e.target.value)}
                 className="h-32"
                 placeholder="Enter the initial prompt or data here..."
+              />
+            </div>
+          ) : isConditionNode ? (
+            <div className="space-y-1">
+              <Label>Condition Field</Label>
+              <p className="text-[10px] text-stone-500 mb-2">
+                The field name to read from the previous node's output. Values of true/True/"true" route to the True branch; all other values route to the False branch.
+              </p>
+              <Input
+                type="text"
+                value={conditionField}
+                onChange={(e) => setConditionField(e.target.value)}
+                placeholder="result"
               />
             </div>
           ) : isToolNode && inputSchema ? (

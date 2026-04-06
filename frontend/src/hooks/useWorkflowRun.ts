@@ -494,7 +494,7 @@ export const useWorkflowRun = (
       return;
     }
 
-    const startNode = nodes.find((n) => n.data?.node?.is_start_node);
+    const startNode = nodes.find((n) => n.data?.node?.node_type === "start" || n.data?.node?.is_start_node);
 
     if (!startNode) {
       setError("Workflow is missing a Start Node.");

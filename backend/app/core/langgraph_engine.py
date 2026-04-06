@@ -129,6 +129,48 @@ def make_langgraph_node(node_model, skill_model):
     return executor
 
 
+def make_condition_executor(node_model):
+    """
+    Creates a condition node executor that reads a field from context
+    and sets __condition_result__ for downstream routing.
+    """
+    def executor(state: WorkflowState) -> dict:
+        context = state.get("context", {})
+        field = node_model.config.get("condition_field", "result")
+        value = context.get(field)
+
+        result = value in (True, "true", "True")
+
+        return {
+            "context": {**context, "__condition_result__": result},
+            "executed_nodes": [node_model.id],
+            "current_node_id": node_model.id,
+            "node_inputs": {node_model.id: {field: value}},
+            "node_outputs": {node_model.id: {"condition_result": result}},
+        }
+    return executor
+
+
+def make_condition_router(condition_node_id, edges):
+    """
+    Build a routing function and route map for a condition node.
+    Returns (router_fn, route_map) for use with add_conditional_edges().
+    """
+    route_map = {}
+    for edge in edges:
+        if edge.source == condition_node_id and edge.condition_label:
+            route_map[edge.condition_label] = edge.target
+
+    route_map.setdefault("true", END)
+    route_map.setdefault("false", END)
+
+    def router(state):
+        result = state.get("context", {}).get("__condition_result__", False)
+        return "true" if result else "false"
+
+    return router, route_map
+
+
 def make_batch_reader(node_model, skill_model):
     """
     Creates a batch reader node that passes through context for fan-out.
@@ -346,9 +388,16 @@ def build_workflow_graph(workflow_model, skills_map, mongo_client: MongoClient):
             return {"executed_nodes": [nid], "current_node_id": nid}
         return start_executor
 
+    condition_node_ids = set()
+
     for node in workflow_model.nodes:
-        if getattr(node, 'is_start_node', False):
+        if node.node_type == "start":
             builder.add_node(node.id, make_start_executor(node.id))
+            continue
+
+        if node.node_type == "condition":
+            builder.add_node(node.id, make_condition_executor(node))
+            condition_node_ids.add(node.id)
             continue
 
         skill = skills_map.get(node.skill_id)
@@ -361,19 +410,27 @@ def build_workflow_graph(workflow_model, skills_map, mongo_client: MongoClient):
             _add_regular_node(builder, node, skill, approval_nodes)
 
     # Add START edge
-    start_node = next((n for n in workflow_model.nodes if n.is_start_node), None)
+    start_node = next((n for n in workflow_model.nodes if n.node_type == "start"), None)
     if start_node:
         builder.add_edge(START, start_node.id)
 
-    # Add all edges (regular and batch-specific)
+    # Add all edges (regular, batch-specific, and condition)
     batch_nodes_with_targets = set()
     for edge in workflow_model.edges:
+        # Skip edges from condition nodes — handled by add_conditional_edges
+        if edge.source in condition_node_ids:
+            continue
         if edge.target in batch_node_ids:
             _add_batch_fan_out_edges(builder, [edge], batch_node_ids, batch_nodes_with_targets)
         elif edge.source in batch_node_ids:
             _add_batch_to_target_edges(builder, [edge], batch_node_ids, batch_nodes_with_targets)
         else:
             builder.add_edge(edge.source, edge.target)
+
+    # Add conditional edges for condition nodes
+    for cond_id in condition_node_ids:
+        router_fn, route_map = make_condition_router(cond_id, workflow_model.edges)
+        builder.add_conditional_edges(cond_id, router_fn, route_map)
 
     _add_terminal_batch_edges(builder, batch_node_ids, batch_nodes_with_targets)
 
