@@ -2,6 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 from typing import Optional
 import os
+import certifi
 from beanie import init_beanie
 from app.models.workflow import Workflow, Skill, WorkflowRun, Agent
 from app.services.skill_service import SkillFileService
@@ -13,12 +14,12 @@ def get_mongo_client() -> MongoClient:
     global _mongo_client
     if _mongo_client is None:
         uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-        _mongo_client = MongoClient(uri)
+        _mongo_client = MongoClient(uri, tlsCAFile=certifi.where())
     return _mongo_client
 
 # beanie - AsyncIOMotorClient
 async def init_db(uri: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017"), db_name: str = os.getenv("MONGO_DB_NAME", "puppy_agent_flow")):
-    client = AsyncIOMotorClient(uri)
+    client = AsyncIOMotorClient(uri, tlsCAFile=certifi.where())
     db = client[db_name]
     await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun, Agent])
 
