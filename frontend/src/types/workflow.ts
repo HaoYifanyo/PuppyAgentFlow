@@ -3,7 +3,8 @@ export type NodeStatus =
   | "running"
   | "paused"
   | "completed"
-  | "error";
+  | "error"
+  | "terminated";
 
 export type AgentProvider =
   | "gemini"

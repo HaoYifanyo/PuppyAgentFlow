@@ -21,7 +21,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ skills, loading, fetchSkills }) => {
-  const [error, setError] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [error, _setError] = useState<string | null>(null);
   const [createSkillOpen, setCreateSkillOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);

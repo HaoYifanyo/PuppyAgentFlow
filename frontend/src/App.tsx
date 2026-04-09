@@ -26,7 +26,7 @@ function App() {
   const [runHistoryOpen, setRunHistoryOpen] = useState(false);
   const [agentLibraryOpen, setAgentLibraryOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string; name: string; description: string; implementation: Record<string, any> }[]>([]);
+  const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string; name: string; description: string; implementation: Record<string, any>; input_schema?: Record<string, any> }[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
 
   const fetchAgents = useCallback(async () => {
@@ -207,7 +207,7 @@ function App() {
       <NodeConfigModal
         isOpen={!!editingNode}
         onClose={() => setEditingNode(null)}
-        onSave={handleSaveNodeConfig}
+        onSave={handleSaveNodeConfig as any}
         onDelete={handleDeleteNode}
         node={editingNode}
         agents={agents}

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import axios from "axios";
-import type { Node, Edge } from "@xyflow/react";
+import type { Node as RFNode, Edge } from "@xyflow/react";
+type Node = RFNode<any>;
 import type { WorkflowRunData } from "../types/workflow";
 import { saveWorkflowApi } from "../utils/workflowActions";
 import { extractId } from "../utils/id";
@@ -397,7 +398,7 @@ export const useWorkflowRun = (
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json();
+      await response.json();
       setRunStatus("terminated");
       setNodes((nds) =>
         nds.map((n) => ({

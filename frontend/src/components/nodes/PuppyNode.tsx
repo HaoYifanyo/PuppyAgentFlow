@@ -65,6 +65,12 @@ const PuppyNode = ({ data }: NodeProps) => {
       text: "text-red-600",
       icon: <X className="w-4 h-4" />,
     },
+    terminated: {
+      bg: "bg-gray-50",
+      border: "border-gray-300",
+      text: "text-gray-500",
+      icon: <X className="w-4 h-4" />,
+    },
   };
 
   const conf = statusConfig[status];
