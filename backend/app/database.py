@@ -17,7 +17,7 @@ def get_mongo_client() -> MongoClient:
     return _mongo_client
 
 # beanie - AsyncIOMotorClient
-async def init_db(uri: str = "mongodb://localhost:27017", db_name: str = os.getenv("MONGO_DB_NAME", "puppy_agent_flow")):
+async def init_db(uri: str = os.getenv("MONGODB_URI", "mongodb://localhost:27017"), db_name: str = os.getenv("MONGO_DB_NAME", "puppy_agent_flow")):
     client = AsyncIOMotorClient(uri)
     db = client[db_name]
     await init_beanie(database=db, document_models=[Workflow, Skill, WorkflowRun, Agent])
