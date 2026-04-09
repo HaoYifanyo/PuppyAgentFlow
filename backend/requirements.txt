@@ -1,7 +1,7 @@
 fastapi
 uvicorn
-motor
-beanie
+motor==3.7.1
+beanie==2.0.1
 requests
 beautifulsoup4
 lxml
