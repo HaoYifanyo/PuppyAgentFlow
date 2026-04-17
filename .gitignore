@@ -45,3 +45,4 @@ docs/daily_dev_log/
 docs/plans
 CLAUDE.md
 backend/browser_profiles
+backend/chroma_data/

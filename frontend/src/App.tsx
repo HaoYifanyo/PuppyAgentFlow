@@ -9,6 +9,7 @@ import { WorkflowDashboardModal } from './components/WorkflowDashboardModal';
 import { NodeConfigModal } from './components/NodeConfigModal';
 import { RunHistoryModal } from './components/RunHistoryModal';
 import { AgentLibraryModal } from './components/AgentLibraryModal';
+import { KnowledgeBaseModal } from './components/KnowledgeBaseModal';
 import { ErrorToast } from './components/ErrorToast';
 import type { NodeRunData, Agent } from './types/workflow';
 import PuppyNode from './components/nodes/PuppyNode';
@@ -25,6 +26,7 @@ const nodeTypes = { puppyNode: PuppyNode, startNode: StartNode, ifElseNode: IfEl
 function App() {
   const [runHistoryOpen, setRunHistoryOpen] = useState(false);
   const [agentLibraryOpen, setAgentLibraryOpen] = useState(false);
+  const [kbModalOpen, setKbModalOpen] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [skills, setSkills] = useState<{ _id?: string; id?: string; type: string; name: string; description: string; implementation: Record<string, any>; input_schema?: Record<string, any> }[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
@@ -157,6 +159,7 @@ function App() {
         onTerminateRun={terminateRun}
         onResetRun={resetRun}
         onOpenAgentLibrary={() => setAgentLibraryOpen(true)}
+        onOpenKnowledgeBase={() => setKbModalOpen(true)}
       />
 
       <div className="flex-1 flex overflow-hidden relative">
@@ -219,6 +222,12 @@ function App() {
         isOpen={agentLibraryOpen}
         onClose={() => setAgentLibraryOpen(false)}
         onAgentsChange={fetchAgents}
+      />
+
+      <KnowledgeBaseModal
+        isOpen={kbModalOpen}
+        onClose={() => setKbModalOpen(false)}
+        agents={agents}
       />
 
       <RunHistoryModal

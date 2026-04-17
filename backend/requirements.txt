@@ -16,3 +16,6 @@ langchain-google-genai>=3.0.0
 cryptography
 browser-use>=0.1.0
 json-repair>=0.30.0
+chromadb>=1.0.0
+pymupdf>=1.25.0
+python-multipart>=0.0.20

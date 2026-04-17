@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog, Square, RotateCcw } from 'lucide-react';
+import { Play, FolderOpen, Save, History, FilePlus, Trash2, MoreHorizontal, Dog, Square, RotateCcw, Database } from 'lucide-react';
 import { Button } from './ui/Button';
 import { PuppyImage } from './PuppyImage';
 import { puppyImages } from '../assets/puppies';
@@ -19,6 +19,7 @@ interface NavbarProps {
   onTerminateRun: () => void;
   onResetRun: () => void;
   onOpenAgentLibrary: () => void;
+  onOpenKnowledgeBase: () => void;
 }
 
 const IconButton: React.FC<{
@@ -52,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onTerminateRun,
   onResetRun,
   onOpenAgentLibrary,
+  onOpenKnowledgeBase,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -120,6 +122,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <IconButton onClick={onOpenAgentLibrary} title="Puppy Agents">
           <Dog className="w-4 h-4 text-amber-500" />
+        </IconButton>
+
+        <IconButton onClick={onOpenKnowledgeBase} title="Knowledge Bases">
+          <Database className="w-4 h-4 text-indigo-500" />
         </IconButton>
 
         {workflowId && (
