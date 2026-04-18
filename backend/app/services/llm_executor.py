@@ -99,6 +99,41 @@ async def execute_tool_node(node: Node, inputs: Dict[str, Any], skill: Skill = N
     return tool_manager.execute(executor, config, inputs)
 
 
+def _extract_query(inputs: Dict[str, Any]) -> str:
+    """Extract a query string from inputs for RAG retrieval.
+
+    Priority: keys named prompt/query/input/question/text,
+    then first string value found.
+    """
+    for key in ("prompt", "query", "input", "question", "text"):
+        if key in inputs and isinstance(inputs[key], str) and inputs[key].strip():
+            return inputs[key].strip()
+
+    for value in inputs.values():
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return ""
+
+
+def _build_rag_context(chunks: list) -> str:
+    """Format retrieved chunks into a context block for the system prompt."""
+    lines = [
+        "## Reference Context\n",
+        "The following information was retrieved from the knowledge base. "
+        "Use it to inform your response when relevant.\n",
+        "---",
+    ]
+    for chunk in chunks:
+        source = chunk.metadata.get("filename", "unknown")
+        index = chunk.metadata.get("chunk_index", 0)
+        lines.append(f"[Source: {source}, Chunk {index}]")
+        lines.append(chunk.text)
+        lines.append("")
+    lines.append("---")
+    return "\n".join(lines)
+
+
 async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = None) -> Any:
     implementation = getattr(skill, "implementation", {}) if skill else getattr(node, "implementation", {})
 
@@ -131,6 +166,25 @@ async def execute_llm_node(node: Node, inputs: Dict[str, Any], skill: Skill = No
                 system_prompt = agent.system_prompt + "\n\n" + system_prompt
         except Exception:
             pass
+
+    # --- RAG context injection ---
+    kb_id = (getattr(node, "config", None) or {}).get("knowledge_base_id")
+    if kb_id:
+        query = _extract_query(inputs)
+        if query:
+            try:
+                from app.models.knowledge_base import KnowledgeBase
+                from beanie import PydanticObjectId as _ObjId
+                kb = await KnowledgeBase.get(_ObjId(kb_id))
+                if kb:
+                    from app.services.rag_instances import rag_service
+                    rag_top_k = (getattr(node, "config", None) or {}).get("rag_top_k", 3)
+                    chunks = await rag_service.search(kb, query, top_k=rag_top_k)
+                    if chunks:
+                        rag_context = _build_rag_context(chunks)
+                        system_prompt = rag_context + "\n\n" + system_prompt
+            except Exception as e:
+                print(f"Warning: RAG retrieval failed for node {node.name}: {e}")
 
     input_str = json.dumps(inputs, ensure_ascii=False, indent=2)
     user_prompt = f"Additional Input Data:\n{input_str}"

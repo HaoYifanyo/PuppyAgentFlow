@@ -1,4 +1,3 @@
-import os
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
@@ -6,21 +5,10 @@ from beanie import PydanticObjectId
 
 from app.models.knowledge_base import KnowledgeBase, KBDocument
 from app.models.workflow import Agent
-from app.services.document_processor import DocumentProcessor
-from app.services.embedding_service import EmbeddingService
-from app.services.vector_store import ChromaVectorStore
-from app.services.rag_service import RAGService
+from app.services.rag_instances import rag_service as _rag_service
 
 
 router = APIRouter(prefix="/knowledge-bases", tags=["knowledge-bases"])
-
-# Service instances (singleton)
-_doc_processor = DocumentProcessor()
-_embedding_service = EmbeddingService()
-_vector_store = ChromaVectorStore(
-    persist_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "chroma_data")
-)
-_rag_service = RAGService(_doc_processor, _embedding_service, _vector_store)
 
 
 # --- Request/Response schemas ---

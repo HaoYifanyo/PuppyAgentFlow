@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Save, Dog, Layers } from 'lucide-react';
+import axios from 'axios';
+import { Trash2, Save, Dog, Layers, Database, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Agent } from '../types/workflow';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
@@ -47,6 +48,10 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   const [agentId, setAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [conditionField, setConditionField] = useState('result');
+  const [knowledgeBases, setKnowledgeBases] = useState<{_id?: string; id?: string; name: string}[]>([]);
+  const [kbId, setKbId] = useState<string>('');
+  const [ragTopK, setRagTopK] = useState<number>(3);
+  const [kbExpanded, setKbExpanded] = useState(false);
 
   const isConditionNode = node?.node_type === "condition";
   const isStartNode = node?.node_type === "start" || node?.is_start_node;
@@ -58,6 +63,9 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       setRequireApproval(node.require_approval || false);
       setBatchMode(node.batch_mode || false);
       setAgentId(node.agent_id || '');
+      setKbId(node.config?.knowledge_base_id || '');
+      setRagTopK(node.config?.rag_top_k ?? 3);
+      setKbExpanded(!!node.config?.knowledge_base_id);
 
       if (isStartNode) {
         const manualText = node.config?.manual_input_text || '';
@@ -77,6 +85,12 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       setError(null);
     }
   }, [isOpen, node]);
+
+  useEffect(() => {
+    if (isOpen && skillType === 'llm') {
+      axios.get('/api/knowledge-bases').then(res => setKnowledgeBases(res.data)).catch(() => {});
+    }
+  }, [isOpen, skillType]);
 
   if (!isOpen || !node) return null;
 
@@ -111,6 +125,11 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
         setError('Invalid JSON format in Config');
         return;
       }
+    }
+
+    // Merge KB config if selected (LLM nodes only)
+    if (skillType === 'llm' && kbId) {
+      parsedConfig = { ...parsedConfig, knowledge_base_id: kbId, rag_top_k: ragTopK };
     }
 
     const updatedData: Partial<WorkflowNode> = {
@@ -211,6 +230,68 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
                 <p className="text-[10px] text-stone-400 mt-1">
                   No agents configured. Open Puppy Agents from the navbar to create one.
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Knowledge Base selector — LLM nodes only */}
+          {!isStartNode && !isConditionNode && skillType === 'llm' && (
+            <div className="border border-indigo-100 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setKbExpanded(v => !v)}
+                className="w-full flex items-center justify-between p-3 bg-indigo-50/30 hover:bg-indigo-50/60 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Database className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="text-sm font-semibold text-stone-700">Knowledge Base</span>
+                  {kbId && (
+                    <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-md font-medium">Active</span>
+                  )}
+                </div>
+                {kbExpanded
+                  ? <ChevronDown className="w-4 h-4 text-stone-400" />
+                  : <ChevronRight className="w-4 h-4 text-stone-400" />
+                }
+              </button>
+              {kbExpanded && (
+                <div className="p-3 space-y-3 bg-white">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-stone-700">Select Knowledge Base</label>
+                    <select
+                      value={kbId}
+                      onChange={e => setKbId(e.target.value)}
+                      className="w-full px-3 py-2 border border-indigo-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none bg-stone-50 hover:bg-white transition-colors cursor-pointer"
+                    >
+                      <option value="">None (no RAG)</option>
+                      {knowledgeBases.map(kb => {
+                        const id = extractId(kb._id || kb.id);
+                        return (
+                          <option key={id} value={id}>{kb.name}</option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  {kbId && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-stone-700">Top K Results</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={ragTopK}
+                        onChange={e => setRagTopK(Math.max(1, Math.min(10, parseInt(e.target.value) || 3)))}
+                        className="w-20 px-3 py-2 border border-indigo-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none bg-stone-50"
+                      />
+                      <p className="text-[10px] text-stone-400">Number of relevant chunks to retrieve (1-10)</p>
+                    </div>
+                  )}
+                  {knowledgeBases.length === 0 && (
+                    <p className="text-[10px] text-stone-400">
+                      No knowledge bases yet. Create one from the Knowledge Bases panel in the navbar.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
