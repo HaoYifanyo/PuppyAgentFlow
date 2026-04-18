@@ -31,16 +31,18 @@ PuppyAgentFlow is a demo-stage **AI agent workflow system** that aims to:
 - **Workflow for ordinary users** — compose steps, reuse agents/skills, see where human review is needed.
 - **Human-in-the-loop** — manual checkpoints for sensitive or irreversible actions.
 - **Extensible** — plug different LLM backends via unified agent/skill APIs.
+- **Knowledge Base & RAG** — upload documents, build knowledge bases, and let LLM nodes retrieve relevant context automatically.
+- **Condition Node** — route workflow execution to different branches based on runtime conditions.
 
 ---
 
 ## Tech Stack
 
-| Layer    | Stack                                        |
-| -------- | -------------------------------------------- |
-| Backend  | Python, FastAPI, LangGraph, MongoDB (Beanie) |
-| Frontend | React, Vite, TypeScript, React Flow          |
-| Tests    | pytest (backend), Playwright (frontend)      |
+| Layer    | Stack                                                  |
+| -------- | ------------------------------------------------------ |
+| Backend  | Python, FastAPI, LangGraph, MongoDB (Beanie), ChromaDB |
+| Frontend | React, Vite, TypeScript, React Flow                    |
+| Tests    | pytest (backend), Playwright (frontend)                |
 
 ---
 
@@ -88,8 +90,38 @@ E2E test requires backend + MongoDB running.
 
 ---
 
+## Knowledge Base & RAG
+
+PuppyAgentFlow includes a built-in **Retrieval-Augmented Generation (RAG)** system powered by ChromaDB.
+
+### Knowledge Base Management
+
+- Upload documents: **PDF, TXT, Markdown, CSV, HTML**
+- Documents are automatically chunked and embedded for vector search
+
+### RAG-Enhanced LLM Nodes
+
+Any LLM node can optionally connect to a knowledge base:
+
+1. Open an LLM node's settings
+2. Select a knowledge base and set Top K (default: 3)
+3. When the node runs, it automatically retrieves relevant chunks and injects them as context into the LLM prompt
+
+---
+
+## Condition Node
+
+Use a Condition Node to route the workflow into different branches based on rule checks in runtime context.
+
+Typical use cases:
+
+- Continue only when required fields are present
+- Choose different downstream agents for different intents
+
+---
+
 ## Future
 
-- Richer workflow visualization (statuses, logs, re-run failed nodes)
-- More human-review patterns (multi-step, different strategies)
+- Agent group
+- Hybrid search (vector + keyword/BM25) and reranking
 - Better persistence and deployment story
