@@ -28,6 +28,7 @@ interface NodeConfigModalProps {
   agents?: Agent[];
   skillType?: string;
   inputSchema?: Record<string, any>;
+  skillImplementation?: Record<string, any>;
 }
 
 export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
@@ -39,6 +40,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   agents = [],
   skillType,
   inputSchema,
+  skillImplementation,
 }) => {
   const [name, setName] = useState('');
   const [requireApproval, setRequireApproval] = useState(false);
@@ -52,6 +54,7 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
   const [kbId, setKbId] = useState<string>('');
   const [ragTopK, setRagTopK] = useState<number>(3);
   const [kbExpanded, setKbExpanded] = useState(false);
+  const [browserMaxSteps, setBrowserMaxSteps] = useState<number>(20);
 
   const isConditionNode = node?.node_type === "condition";
   const isStartNode = node?.node_type === "start" || node?.is_start_node;
@@ -82,9 +85,19 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
       } else {
         setConfigStr(node.config ? JSON.stringify(node.config, null, 2) : '{}');
       }
+
+      if (skillType === 'browser_use') {
+        const fromNode = node.config?.max_steps;
+        const fromSkill = skillImplementation?.max_steps;
+        setBrowserMaxSteps(
+          typeof fromNode === 'number' ? fromNode :
+          typeof fromSkill === 'number' ? fromSkill :
+          20
+        );
+      }
       setError(null);
     }
-  }, [isOpen, node]);
+  }, [isOpen, node, skillType, skillImplementation]);
 
   useEffect(() => {
     if (isOpen && skillType === 'llm') {
@@ -130,6 +143,11 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
     // Merge KB config if selected (LLM nodes only)
     if (skillType === 'llm' && kbId) {
       parsedConfig = { ...parsedConfig, knowledge_base_id: kbId, rag_top_k: ragTopK };
+    }
+
+    // Merge Max Steps override for browser_use nodes
+    if (skillType === 'browser_use') {
+      parsedConfig = { ...parsedConfig, max_steps: browserMaxSteps };
     }
 
     const updatedData: Partial<WorkflowNode> = {
@@ -231,6 +249,25 @@ export const NodeConfigModal: React.FC<NodeConfigModalProps> = ({
                   No agents configured. Open Puppy Agents from the navbar to create one.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Max Steps — browser_use nodes only */}
+          {!isStartNode && !isConditionNode && skillType === 'browser_use' && (
+            <div className="space-y-1">
+              <Label>Max Steps</Label>
+              <p className="text-xs text-stone-500">
+                Maximum browser actions for this run. Overrides the skill default.
+              </p>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={browserMaxSteps}
+                onChange={(e) => setBrowserMaxSteps(Math.max(1, Math.min(100, parseInt(e.target.value) || 20)))}
+                className="w-24 px-3 py-2 border border-rose-200 rounded-xl text-sm focus:ring-2 focus:ring-rose-400 focus:border-rose-400 outline-none bg-stone-50"
+                data-testid="node-config-max-steps"
+              />
             </div>
           )}
 

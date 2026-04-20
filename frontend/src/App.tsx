@@ -216,6 +216,7 @@ function App() {
         agents={agents}
         skillType={editingNode ? (skills.find(s => extractId(s._id || s.id) === editingNode.skill_id)?.type) : undefined}
         inputSchema={editingNode ? (skills.find(s => extractId(s._id || s.id) === editingNode.skill_id)?.input_schema) : undefined}
+        skillImplementation={editingNode ? (skills.find(s => extractId(s._id || s.id) === editingNode.skill_id)?.implementation) : undefined}
       />
 
       <AgentLibraryModal
